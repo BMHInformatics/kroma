@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'labwebsite',
+    'ORMIS_PD'
 ]
 
 MIDDLEWARE = [
@@ -94,6 +95,25 @@ if environment == 'prod':
             'PORT': '5432',
         }
     }
+elif environment == "test":
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'labwebsite',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        },
+        'ORMISPD': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'ORMISPD',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
+    }
 else:
     DATABASES = {
         'default': {
@@ -102,6 +122,14 @@ else:
             'USER': 'postgres',
             'PASSWORD': 'Dipak@2021',
             'HOST': 'localhost',
+            'PORT': '5432',
+        },
+        'ORMISPD': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'ORMISPD',
+            'USER': 'postgres',
+            'PASSWORD': 'Dipak@2021',
+            'HOST': '129.22.246.210',
             'PORT': '5432',
         }
     }
