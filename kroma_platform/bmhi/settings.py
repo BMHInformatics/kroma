@@ -129,7 +129,7 @@ else:
             'NAME': 'ORMISPD',
             'USER': 'postgres',
             'PASSWORD': 'Dipak@2021',
-            'HOST': '129.22.246.210',
+            'HOST': 'localhost',
             'PORT': '5432',
         }
     }
