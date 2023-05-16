@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'labwebsite',
-    'ORMIS_PD'
+    'ORMIS_PD',
+    'NIC'
 ]
 
 MIDDLEWARE = [

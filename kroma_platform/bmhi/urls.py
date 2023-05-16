@@ -22,7 +22,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('labwebsite.urls', namespace='labwebsite')),
-    path('ORMIS/', include('ORMIS_PD.urls', namespace='ORMIS'))
+    path('ORMIS/', include('ORMIS_PD.urls', namespace='ORMIS')),
+    path('NIC/', include('NIC.urls', namespace='NIC'))
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
