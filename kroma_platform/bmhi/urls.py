@@ -23,7 +23,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('labwebsite.urls', namespace='labwebsite')),
     path('ORMIS/', include('ORMIS_PD.urls', namespace='ORMIS')),
-    path('NIC/', include('NIC.urls', namespace='NIC'))
+    path('NIC/', include('NIC.urls', namespace='NIC')),
+    path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA'))
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

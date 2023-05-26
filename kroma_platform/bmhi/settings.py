@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'labwebsite',
     'ORMIS_PD',
-    'NIC'
+    'NIC',
+    'MATILDA'
 ]
 
 MIDDLEWARE = [
