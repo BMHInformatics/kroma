@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'labwebsite',
-    'ORMIS_PD',
+    # 'ORMIS_PD',
     'NIC',
     'MATILDA'
 ]
@@ -107,14 +107,14 @@ elif environment == "test":
             'HOST': 'localhost',
             'PORT': '5432',
         },
-        'ORMISPD': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'ORMISPD',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
+        # 'ORMISPD': {
+        #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        #     'NAME': 'ORMISPD',
+        #     'USER': 'postgres',
+        #     'PASSWORD': 'admin',
+        #     'HOST': 'localhost',
+        #     'PORT': '5432',
+        # }
     }
 else:
     DATABASES = {
@@ -126,14 +126,14 @@ else:
             'HOST': 'localhost',
             'PORT': '5432',
         },
-        'ORMISPD': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'ORMISPD',
-            'USER': 'postgres',
-            'PASSWORD': 'Dipak@2021',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
+        # 'ORMISPD': {
+        #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        #     'NAME': 'ORMISPD',
+        #     'USER': 'postgres',
+        #     'PASSWORD': 'Dipak@2021',
+        #     'HOST': 'localhost',
+        #     'PORT': '5432',
+        # }
     }
 
 # Password validation
