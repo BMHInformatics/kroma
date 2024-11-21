@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'labwebsite',
     # 'ORMIS_PD',
     'NIC',
-    'MATILDA'
+    'MATILDA',
+    'epilepsy4d',
 ]
 
 MIDDLEWARE = [

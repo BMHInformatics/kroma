@@ -23,7 +23,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('labwebsite.urls', namespace='labwebsite')),
     path('NIC/', include('NIC.urls', namespace='NIC')),
-    path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA'))
+    path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA')),
+    path('epilepsy4d/', include('epilepsy4d.urls'))
+
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
