@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'NIC',
     'MATILDA',
     'epilepsy4d',
+    'DSAI',
 ]
 
 MIDDLEWARE = [
@@ -127,6 +128,14 @@ else:
             'HOST': 'localhost',
             'PORT': '5432',
         },
+        'dsai': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'dsai',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
         # 'ORMISPD': {
         #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
         #     'NAME': 'ORMISPD',
