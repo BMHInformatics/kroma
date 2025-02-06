@@ -25,7 +25,7 @@ urlpatterns = [
     path('NIC/', include('NIC.urls', namespace='NIC')),
     path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA')),
     path('epilepsy4d/', include('epilepsy4d.urls')),
-    path('DSAI/', include('DSAI.urls', namespace='DSAI'))
+    path('DSAI/', include('DSAI.urls', namespace='DSAI')),
 
 ]
 

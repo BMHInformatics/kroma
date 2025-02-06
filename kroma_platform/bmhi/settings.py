@@ -29,10 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-if environment == 'prod':
-    DEBUG = False
-else:
-    DEBUG = True
+#if environment == 'prod':
+#    DEBUG = False
+#else:
+#    DEBUG = True
+
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -93,17 +95,36 @@ if environment == 'prod':
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': 'labwebsite',
-            'USER': 'labuser',
-            'PASSWORD': 'Sahoo_lab',
+#            'USER': 'labuser',
+#            'PASSWORD': 'Sahoo_lab',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        },
+        'dsai': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'dsai',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
             'HOST': 'localhost',
             'PORT': '5432',
         }
+
     }
 elif environment == "test":
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': 'labwebsite',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        },
+        'dsai': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'dsai',
             'USER': 'postgres',
             'PASSWORD': 'admin',
             'HOST': 'localhost',
@@ -124,7 +145,8 @@ else:
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': 'labwebsite',
             'USER': 'postgres',
-            'PASSWORD': 'Dipak@2021',
+#            'PASSWORD': 'Dipak@2021',
+            'PASSWORD': 'admin',
             'HOST': 'localhost',
             'PORT': '5432',
         },
@@ -145,6 +167,8 @@ else:
         #     'PORT': '5432',
         # }
     }
+
+#DATABASE_ROUTERS = ['database_router.DatabaseRouter']
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
