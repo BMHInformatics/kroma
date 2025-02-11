@@ -108,6 +108,14 @@ if environment == 'prod':
             'PASSWORD': 'admin',
             'HOST': 'localhost',
             'PORT': '5432',
+        },
+        'epilepsy4d': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'epilepsy4d',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
         }
 
     }
@@ -129,14 +137,14 @@ elif environment == "test":
             'HOST': 'localhost',
             'PORT': '5432',
         },
-        # 'ORMISPD': {
-        #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        #     'NAME': 'ORMISPD',
-        #     'USER': 'postgres',
-        #     'PASSWORD': 'admin',
-        #     'HOST': 'localhost',
-        #     'PORT': '5432',
-        # }
+        'epilepsy4d': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'epilepsy4d',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
     }
 else:
     DATABASES = {
@@ -156,15 +164,15 @@ else:
             'PASSWORD': 'admin',
             'HOST': 'localhost',
             'PORT': '5432',
+        },
+        'epilepsy4d': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'epilepsy4d',
+            'USER': 'postgres',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '5432',
         }
-        # 'ORMISPD': {
-        #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        #     'NAME': 'ORMISPD',
-        #     'USER': 'postgres',
-        #     'PASSWORD': 'Dipak@2021',
-        #     'HOST': 'localhost',
-        #     'PORT': '5432',
-        # }
     }
 
 #DATABASE_ROUTERS = ['database_router.DatabaseRouter']
