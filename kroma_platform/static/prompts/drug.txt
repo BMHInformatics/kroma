@@ -1,0 +1,20 @@
+The following query is about a scientific paper on Dravet Syndrome.
+
+First, I will present you with an example on how to answer the question. After the delimiter, I will ask the main question and you should answer the main question ONLY using the text provided.
+
+Example:
+Question: The following text describes a study on the effect of antiepileptic drugs (or anti-seizure medications) in suppressing seizures. Answer the following question:
+1. Identify which of the antiepileptic drugs (or anti-seizure medications) that have been studied in the following text, are also mentioned in Text B.
+
+In the valproate, all 9 mutant larvae responded positively in valproate treatment (i.e., decrease of seizure score).
+
+Answer:
+drug: Valproate,
+
+---
+Main Question:
+Question: The following text describes a study of the effect on antiepileptic drugs (or anti-seizure medications) in suppressing seizures. Answer the following question:
+1. Identify which of the antiepileptic drugs (or anti-seizure medications) that have been studied in the following text, are also mentioned in Text B. If there are more than 1 drugs, seperate them by comma.
+
+Answer:
+drug: 

@@ -1,0 +1,20 @@
+The following query is about a scientific paper on Dravet Syndrome.
+
+First, I will present you with an example on how to answer the question. After the delimiter, I will ask the main question and you should answer that accordingly.
+
+Example:
+Question: The following text describes a study on the electrophysiology of seizures. Answer the following question:
+1. What type of inter-ictal pattern is described in the studied organisms? Select from the following: "Polyspikes", "Sharp Wave", "Spike", "Slow Activity/Background Slow", "Spike and Wave Complex", "None". Do not explain. 
+
+DS mice display a lower rate of sharp-wave ripple (SPW-R) events compared to wild-type mice.
+
+Answer:
+inter-ictal pattern: Sharp Wave
+
+---
+Main Question:
+Question: The following text describes a study on the electrophysiology of seizures. Answer the following question:
+1. What type of inter-ictal pattern is described in the studied organisms? Select from the following: "Polyspikes", "Sharp Wave", "Spike", "Slow activity/Background Slow", "Spike and Wave Complex", "None". Do not explain. 
+
+Answer:
+inter-ictal pattern: 
