@@ -26,6 +26,9 @@ urlpatterns = [
     path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA')),
     path('epilepsy4d/', include('epilepsy4d.urls')),
     path('DSAI/', include('DSAI.urls', namespace='DSAI')),
+    path('ormispd/', include('ORMIS_PD.urls', namespace='ormispd')),
+    path('ormis/', include('ORMIS.urls', namespace='ormis')),
+    path('CDSPD/', include('ORMIS.urls', namespace='ormis')),
 
 ]
 

@@ -48,11 +48,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'labwebsite',
-    # 'ORMIS_PD',
+    'ORMIS_PD',
     'NIC',
     'MATILDA',
     'epilepsy4d',
     'DSAI',
+    'ORMIS',
 ]
 
 MIDDLEWARE = [
@@ -144,7 +145,15 @@ elif environment == "test":
             'PASSWORD': 'admin',
             'HOST': 'localhost',
             'PORT': '5432',
-        }
+        },
+        'ormispd': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'ormispd',
+            'USER': 'admin',
+            'PASSWORD': '2507Wolstein2022',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        },
     }
 else:
     DATABASES = {
