@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 from pathlib import Path
+from django.urls import reverse_lazy
 import environ
 
 env = environ.Env()
@@ -30,7 +31,7 @@ SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 if environment == 'prod':
-   DEBUG = False
+   DEBUG = True
 else:
    DEBUG = True
 
@@ -52,8 +53,7 @@ INSTALLED_APPS = [
     'NIC',
     'MATILDA',
     'epilepsy4d',
-    'DSAI',
-    'ORMIS',
+    'DSapp',
 ]
 
 MIDDLEWARE = [
@@ -104,11 +104,11 @@ if environment == 'prod':
         },
         'dsai': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'dsai',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'NAME': env('DSAI_DB_NAME'),
+            'USER': env('DSAI_DB_USER'),
+            'PASSWORD': env('DSAI_DB_PASSWORD'),
+            'HOST': env('DSAI_DB_HOST'),
+            'PORT': env('DSAI_DB_PORT'),
         },
         'epilepsy4d': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -132,25 +132,17 @@ elif environment == "test":
         },
         'dsai': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'dsai',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'NAME': env('DSAI_DB_NAME'),
+            'USER': env('DSAI_DB_USER'),
+            'PASSWORD': env('DSAI_DB_PASSWORD'),
+            'HOST': env('DSAI_DB_HOST'),
+            'PORT': env('DSAI_DB_PORT'),
         },
         'epilepsy4d': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': 'epilepsy4d',
             'USER': 'postgres',
             'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        },
-        'ormispd': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'ormispd',
-            'USER': 'admin',
-            'PASSWORD': '2507Wolstein2022',
             'HOST': 'localhost',
             'PORT': '5432',
         },
@@ -168,11 +160,11 @@ else:
         },
         'dsai': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'dsai',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'NAME': env('DSAI_DB_NAME'),
+            'USER': env('DSAI_DB_USER'),
+            'PASSWORD': env('DSAI_DB_PASSWORD'),
+            'HOST': env('DSAI_DB_HOST'),
+            'PORT': env('DSAI_DB_PORT'),
         },
         'epilepsy4d': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -184,7 +176,7 @@ else:
         }
     }
 
-#DATABASE_ROUTERS = ['database_router.DatabaseRouter']
+DATABASE_ROUTERS = ['bmhi.dbrouters.DSAppRouter']
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -236,3 +228,21 @@ MEDIA_ROOT = BASE_DIR.joinpath('media')
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+LOGIN_URL = '/kroma/'
+LOGIN_REDIRECT_URL = '/kroma/home'
+LOGOUT_REDIRECT_URL = '/kroma/'
+
+
+# KroMA access request
+KROMA_ACCESS_REQUEST_EMAIL = "pxg338@case.edu"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = env("KROMA_EMAIL_FROM")
+EMAIL_HOST_USER = env("KROMA_EMAIL_USER")
+EMAIL_HOST_PASSWORD = env("KROMA_EMAIL_PASSWORD")
+

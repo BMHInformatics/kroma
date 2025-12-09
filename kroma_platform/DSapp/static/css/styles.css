@@ -1,0 +1,39 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+.container {
+    width: 90%;
+    margin: auto;
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.charts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    margin-bottom: 30px;
+}
+
+canvas {
+    max-width: 400px;
+    max-height: 300px;
+}
+
+.hidden {
+    display: none;
+}
+
+#articleDetail {
+    margin-top: 20px;
+    background: #f4f4f4;
+    padding: 15px;
+    border-radius: 10px;
+}
