@@ -26,6 +26,7 @@ urlpatterns = [
     path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA')),
     path('epilepsy4d/', include('epilepsy4d.urls')),
     path('kroma/', include('DSapp.urls', namespace='kroma')),
+    path('dsai/', include('DSapp.urls', namespace='kroma')),
     path(
         "CDSPD/",
         RedirectView.as_view(
