@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'labwebsite',
-    'ORMIS_PD',
     'NIC',
     'MATILDA',
     'epilepsy4d',
