@@ -53,3 +53,31 @@ class AccessRequest(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
+
+
+class ChatLog(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="kroma_chatlogs",
+    )
+
+    # What user asked
+    prompt = models.TextField()
+
+    # What the model returned
+    response = models.TextField()
+
+    # Other metadata
+    user_category = models.CharField(max_length=50, blank=True)
+    model_name = models.CharField(max_length=50, blank=True)
+    was_success = models.BooleanField(default=True)
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.created_at} | {self.user} | {self.prompt[:40]}"

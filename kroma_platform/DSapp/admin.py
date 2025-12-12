@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import AccessRequest
 from django.http import HttpResponse
+from .models import AccessRequest
+from .models import ChatLog
 import csv
 
 
@@ -125,3 +126,16 @@ class AccessRequestAdmin(admin.ModelAdmin):
         return response
 
     export_as_csv.short_description = "Export selected requests as CSV"
+
+
+@admin.register(ChatLog)
+class ChatLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "user_category", "model_name", "was_success", "short_prompt")
+    list_filter = ("was_success", "user_category", "model_name", "created_at", "user")
+    search_fields = ("user__username", "user__email", "prompt", "response", "error_message")
+    readonly_fields = ("created_at", "user", "prompt", "response", "user_category", "model_name", "was_success", "error_message")
+    ordering = ("-created_at",)
+
+    def short_prompt(self, obj):
+        return (obj.prompt[:80] + "…") if len(obj.prompt) > 80 else obj.prompt
+    short_prompt.short_description = "Prompt"

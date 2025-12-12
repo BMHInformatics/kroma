@@ -14,8 +14,9 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from pathlib import Path
 from google import genai
-from DSapp.models import Article
-from DSapp.models import AccessRequest
+from .models import Article
+from .models import AccessRequest
+from .models import ChatLog
 
 
 # Gemini client
@@ -245,6 +246,7 @@ def index(request):
 
     return render(request, 'DSapp/index.html', context)
 
+@login_required
 def kg_chat_api(request):
     """
     AJAX endpoint for the popup chatbot.
@@ -260,17 +262,11 @@ def kg_chat_api(request):
     if not GEMINI_API_KEY:
         return JsonResponse({"error": "Gemini API key missing"}, status=500)
 
+    role = request.POST.get("role", "clinician")
+    model_name = "gemini-2.5-flash"
+
     try:
         uploaded_file = get_kg_file_ref()
-
-        # system_instruction = (
-        #     "You are an expert assistant answering questions about "
-        #     "Dravet Syndrome using an RDF knowledge graph provided as "
-        #     "N-Triples. Use the file to contextualize and ground your answers and be concise "
-        #     "but precise. If the answer is not clearly supported by the knowledge graph, "
-        #     "say so explicitly. You do not need to provide evidence from the knowledge graph in your answer"
-        # )
-        role = request.POST.get("role", "clinician")
         system_instruction = get_system_instruction_for_role(role)
 
         contents = [
@@ -280,13 +276,44 @@ def kg_chat_api(request):
         ]
 
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=model_name,
             contents=contents,
         )
 
         text = getattr(response, "text", "").strip()
+
+        # ✅ Save chat log (success)
+        try:
+            ChatLog.objects.create(
+                user=request.user,
+                role=role,
+                model_name=model_name,
+                prompt=user_message,
+                response=text,
+                was_success=True,
+                error_message="",
+            )
+        except Exception:
+            # Don't break chatbot if logging fails
+            pass
+
         return JsonResponse({"response": text})
+
     except Exception as e:
+        # ✅ Save chat log (failure)
+        try:
+            ChatLog.objects.create(
+                user=request.user,
+                role=role,
+                model_name=model_name,
+                prompt=user_message,
+                response="",
+                was_success=False,
+                error_message=str(e),
+            )
+        except Exception:
+            pass
+
         return JsonResponse({"error": str(e)}, status=500)
 
 
