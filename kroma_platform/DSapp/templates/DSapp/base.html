@@ -66,6 +66,18 @@
         font-weight: 600;
     }
 
+.user-badge{
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
     .main-container {
         padding: 0 1.5rem 2rem 1.5rem;
     }
@@ -188,15 +200,21 @@
             <div class="kroma-subtitle">(Knowledge Graph-Grounded Medical Agent)</div>
         </div>
 
-        <!-- RIGHT: Logout button -->
+        <!-- RIGHT: Login/Logout -->
         {% if user.is_authenticated %}
-        <form method="post" action="{% url 'kroma:logout' %}" class="ms-auto">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-outline-light">
-                Logout
-            </button>
-        </form>
-        {% endif %}
+        <div class="ms-auto d-flex flex-column align-items-center gap-2">
+
+          <span class="user-badge">{{ user.username }}</span>
+
+          <form method="post" action="{% url 'kroma:logout' %}" class="mb-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-light">
+                  Logout
+              </button>
+          </form>
+
+</div>
+{% endif %}
 
     </div>
 </nav>
@@ -209,6 +227,32 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js %}{% endblock %}
 
+<script>
+(function () {
+  const fab = document.querySelector('.feedback-fab');
+  if (!fab) return;
+
+  let scrollTimeout = null;
+
+  function onScroll() {
+    // Fade while scrolling
+    fab.classList.add('hidden');
+
+    // Clear any previous "scroll stopped" timer
+    if (scrollTimeout) clearTimeout(scrollTimeout);
+
+    // If no scroll events for 180ms, treat it as "stopped"
+    scrollTimeout = setTimeout(() => {
+      fab.classList.remove('hidden');
+    }, 180);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // Ensure it comes back on load (in case page loads mid-scroll position)
+  window.addEventListener('load', () => fab.classList.remove('hidden'));
+})();
+</script>
 
 </body>
 </html>

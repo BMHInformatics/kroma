@@ -350,6 +350,13 @@
     </div>
 </div>  <!-- end Article Knowledge Base container -->
 
+<!-- Feedback button -->
+    {% if KROMA_FEEDBACK_URL %}
+    <a class="feedback-fab" href="{{ KROMA_FEEDBACK_URL }}" target="_blank" rel="noopener">
+💬 Feedback
+    </a>
+    {% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -745,4 +752,36 @@
         });
     });
 </script>
+
+<style>
+    .feedback-fab{
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 1050;
+      background: #ffffff;
+      color: #0b5ed7;
+      border: 1px solid rgba(0,0,0,0.15);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+      transition:
+        opacity 0.25s ease,
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+    }
+
+    .feedback-fab.hidden{
+      opacity: 0.35;
+      transform: translateY(10px);
+    }
+
+    .feedback-fab:hover{
+      opacity: 1 !important;
+      transform: translateY(0) !important;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+    }
+</style>
 {% endblock %}

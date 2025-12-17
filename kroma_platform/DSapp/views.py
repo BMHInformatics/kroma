@@ -242,6 +242,7 @@ def index(request):
         'org_percentages_json': json.dumps(org_percentages),
 
         'MEDIA_URL': settings.MEDIA_URL,
+        "KROMA_FEEDBACK_URL": getattr(settings, "KROMA_FEEDBACK_URL", ""),
     }
 
     return render(request, 'DSapp/index.html', context)
