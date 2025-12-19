@@ -40,8 +40,8 @@
             </div>
         </div>
     </div>
-    <p id="chatbot-status"
-       style="font-size:0.8rem; color:#666; margin-top:4px; min-height:1em;">
+    <p id="chatbot-status" class="chatbot-status">
+      <span class="thinking-label"></span><span class="thinking-dots"></span>
     </p>
 
     <!-- Input -->
@@ -277,7 +277,7 @@
                                             {{ a.title }}
                                         </h6>
                                         <p class="card-subtitle text-muted mb-1" style="font-size:0.8rem;">
-                                            {{ a.authors }} – <em>{{ a.journal }}</em> ({{ a.year }})
+                                            {{ a.authors }} â€“ <em>{{ a.journal }}</em> ({{ a.year }})
                                         </p>
                                         <p class="mb-1" style="font-size:0.82rem;">
                                             <strong>Type:</strong> {{ a.type }} |
@@ -582,12 +582,12 @@
 
                 headers.forEach(h => {
                     h.dataset.order = "none";
-                    h.textContent = h.textContent.replace(/ ▲| ▼/g, "");
+                    h.textContent = h.textContent.replace(/ â–²| â–¼/g, "");
                 });
 
                 header.dataset.order = newOrder;
-                header.textContent = header.textContent.replace(/ ▲| ▼/g, "") +
-                                     (newOrder === "asc" ? " ▲" : " ▼");
+                header.textContent = header.textContent.replace(/ â–²| â–¼/g, "") +
+                                     (newOrder === "asc" ? " â–²" : " â–¼");
 
                 sortTable(table, columnIndex, type, newOrder);
             });
@@ -696,8 +696,16 @@
             }
             navigator.clipboard.writeText(text)
                 .then(() => {
-                    statusBox.textContent = "Conversation copied to clipboard.";
-                    setTimeout(() => { statusBox.textContent = ""; }, 3000);
+                  const label = statusBox.querySelector(".thinking-label");
+                  const dots  = statusBox.querySelector(".thinking-dots");
+
+                  if (label) label.textContent = "Conversation copied to clipboard.";
+                  if (dots)  dots.style.display = "none";
+
+                  setTimeout(() => {
+                    if (label) label.textContent = "";
+                    if (dots)  dots.style.display = "";
+                  }, 3000);
                 })
                 .catch(err => {
                     statusBox.textContent = "Failed to copy: " + err;
@@ -726,7 +734,7 @@
 
               addMessage("user", msg);
               input.value = "";
-              statusBox.textContent = "Thinking...";
+              statusBox.classList.add("thinking");
 
               const role = roleSelect ? roleSelect.value : "clinician";
               const csrftoken = getCookie("csrftoken");
@@ -754,7 +762,7 @@
                   return r.json();
               })
               .then(data => {
-                  statusBox.textContent = "";
+                  statusBox.classList.remove("thinking");
                   if (data.error) {
                       addMessage("bot", "❌ Error:\n" + data.error);
                   } else {
@@ -762,7 +770,7 @@
                   }
               })
               .catch(err => {
-                  statusBox.textContent = "";
+                  statusBox.classList.remove("thinking");
                   addMessage("bot", "❌ Request failed:\n" + err.message);
               });
           }
