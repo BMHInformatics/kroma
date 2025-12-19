@@ -2,10 +2,12 @@ import os
 import json
 import time
 import rdflib
-import logging
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_protect
 from datetime import timedelta
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.conf import settings
@@ -15,11 +17,11 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from pathlib import Path
 from google import genai
-from .models import Article
-from .models import AccessRequest
-from .models import ChatLog
+from google.genai.types import UploadFileConfig
+from .models import Article, AccessRequest, ChatLog
 
-logger = logging.getLogger(__name__)
+User = get_user_model()
+
 
 # Gemini client
 GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
@@ -116,7 +118,7 @@ def get_kg_file_ref():
 
     KG_FILE_REF = gemini_client.files.upload(
         file=str(nt_path),
-        config={"name": unique_name}
+        config=UploadFileConfig(name=unique_name),
     )
 
     return KG_FILE_REF
@@ -183,13 +185,13 @@ def index(request):
             selected_articles = Article.objects.using('dsai').filter(pmcid__in=selected_ids)
 
     # --- 4. Stats for charts ---
-    total = qs.count() or 1
+    total = qs.count()
 
     # Type (pie chart)
     type_counts_qs = qs.values('type').annotate(count=Count('pmcid')).order_by('type')
     type_labels = [item['type'] for item in type_counts_qs]
     type_values = [item['count'] for item in type_counts_qs]
-    type_percentages = [round(100 * c / total, 1) for c in type_values]
+    type_percentages = [round(100 * c / total, 1) for c in type_values] if total else [0] * len(type_values)
 
     # Axis (bar chart)
     axis_counts_qs = qs.values('axis').annotate(count=Count('pmcid')).order_by('axis')
@@ -248,30 +250,54 @@ def index(request):
 
     return render(request, 'DSapp/index.html', context)
 
-@login_required
+
+@require_POST
+@csrf_protect
 def kg_chat_api(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST only"}, status=400)
-
-    user_message = request.POST.get("message", "").strip()
-    if not user_message:
-        return JsonResponse({"error": "Empty message"}, status=400)
-
-    if not GEMINI_API_KEY:
-        return JsonResponse({"error": "Gemini API key missing"}, status=500)
-
-    role = request.POST.get("role", "clinician")
-    model_name = "gemini-2.5-flash"
-
     try:
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        user_message = request.POST.get("message", "").strip()
+        if not user_message:
+            return JsonResponse({"error": "Empty message"}, status=400)
+
+        if not GEMINI_API_KEY:
+            return JsonResponse({"error": "Gemini API key missing"}, status=500)
+
+        role = request.POST.get("role", "clinician")
+        model_name = "gemini-2.5-flash"
+        db = "dsai"
+
+        # Ensure user exists in dsai by username
+        user_in_dsai, _ = User.objects.using(db).update_or_create(
+            username=request.user.username,
+            defaults={
+                "email": request.user.email,
+                "password": request.user.password,
+                "is_active": request.user.is_active,
+                "is_staff": request.user.is_staff,
+                "is_superuser": request.user.is_superuser,
+                "first_name": request.user.first_name,
+                "last_name": request.user.last_name,
+            },
+        )
+
+        # Create log first
+        log = ChatLog.objects.using(db).create(
+            user=user_in_dsai,
+            user_category=role,
+            model_name=model_name,
+            prompt=user_message,
+            response="",
+            was_success=False,
+            error_message="",
+        )
+
         uploaded_file = get_kg_file_ref()
         system_instruction = get_system_instruction_for_role(role)
 
-        contents = [
-            uploaded_file,
-            system_instruction,
-            f"User question: {user_message}"
-        ]
+        contents = [uploaded_file, system_instruction, f"User question: {user_message}"]
 
         response = gemini_client.models.generate_content(
             model=model_name,
@@ -280,37 +306,15 @@ def kg_chat_api(request):
 
         text = getattr(response, "text", "").strip()
 
-        # Save chat log
-        try:
-            ChatLog.objects.create(
-                user=request.user,
-                user_category=role,
-                model_name=model_name,
-                prompt=user_message,
-                response=text,
-                was_success=True,
-                error_message="",
-            )
-        except Exception as log_e:
-            logger.exception("Failed to save ChatLog")
+        log.response = text
+        log.was_success = True
+        log.error_message = ""
+        log.save(using=db, update_fields=["response", "was_success", "error_message"])
 
         return JsonResponse({"response": text})
 
     except Exception as e:
-        try:
-            ChatLog.objects.create(
-                user=request.user,
-                user_category=role,
-                model_name=model_name,
-                prompt=user_message,
-                response="",
-                was_success=False,
-                error_message=str(e),
-            )
-        except Exception as log_e:
-            logger.exception("Failed to save ChatLog")
-
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": f"{type(e).__name__}: {str(e)}"}, status=500)
 
 
 def request_access(request):
@@ -353,16 +357,13 @@ def request_access(request):
             ]
             body = "\n".join(body_lines)
 
-            try:
-                send_mail(
-                    subject=subject,
-                    message=body,
-                    from_email=from_email,
-                    recipient_list=[notify_email],
-                    fail_silently=True,
-                )
-            except Exception:
-                pass
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=from_email,
+                recipient_list=[notify_email],
+                fail_silently=True,
+            )
 
         messages.success(
             request,

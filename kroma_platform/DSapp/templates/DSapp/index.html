@@ -216,7 +216,7 @@
                 <form method="post" action="?{{ request.GET.urlencode }}" id="article-select-form">
                     {% csrf_token %}
                     <div class="table-scroll">
-                        <table class="table table-sm table-hover align-middle mb-1">
+                        <table class="table table-sm table-hover align-middle mb-1 small">
                             <thead class="table-light">
                             <tr>
                                 <th scope="col">Select</th>
@@ -704,41 +704,68 @@
                 });
         };
 
-        // Send one message to backend
-        function sendMessage() {
-            const msg = input.value.trim();
-            if (!msg) return;
+          function getCookie(name) {
+              let cookieValue = null;
+              if (document.cookie && document.cookie !== "") {
+                  const cookies = document.cookie.split(";");
+                  for (let i = 0; i < cookies.length; i++) {
+                      const cookie = cookies[i].trim();
+                      if (cookie.substring(0, name.length + 1) === (name + "=")) {
+                          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                          break;
+                      }
+                  }
+              }
+              return cookieValue;
+          }
 
-            // Show user bubble immediately
-            addMessage("user", msg);
-            input.value = "";
-            statusBox.textContent = "Thinking...";
+          // Send one message to backend
+          function sendMessage() {
+              const msg = input.value.trim();
+              if (!msg) return;
 
-            const role = roleSelect ? roleSelect.value : "clinician";
+              addMessage("user", msg);
+              input.value = "";
+              statusBox.textContent = "Thinking...";
 
-            fetch("{% url 'DSapp:kg_chat_api' %}", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": "{{ csrf_token }}",
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: "message=" + encodeURIComponent(msg) +
-                      "&role="   + encodeURIComponent(role)
-            })
-            .then(r => r.json())
-            .then(data => {
-                statusBox.textContent = "";
-                if (data.error) {
-                    addMessage("bot", "❌ Error:\n" + data.error);
-                } else {
-                    addMessage("bot", data.response || "(No response text)");
-                }
-            })
-            .catch(err => {
-                statusBox.textContent = "";
-                addMessage("bot", "❌ Request failed:\n" + err);
-            });
-        }
+              const role = roleSelect ? roleSelect.value : "clinician";
+              const csrftoken = getCookie("csrftoken");
+
+              fetch("{% url 'DSapp:kg_chat_api' %}", {
+                  method: "POST",
+                  credentials: "same-origin",
+                  headers: {
+                      "X-CSRFToken": csrftoken,
+                      "Content-Type": "application/x-www-form-urlencoded",
+                      "Accept": "application/json"
+                  },
+                  body: new URLSearchParams({
+                      message: msg,
+                      role: role
+                  }).toString()
+              })
+              .then(async (r) => {
+                  // If server returns HTML, show a readable error instead of JSON crash
+                  const ct = r.headers.get("content-type") || "";
+                  if (!ct.includes("application/json")) {
+                      const text = await r.text();
+                      throw new Error("Server returned non-JSON (likely login/CSRF). HTTP " + r.status + "\n" + text.slice(0, 200));
+                  }
+                  return r.json();
+              })
+              .then(data => {
+                  statusBox.textContent = "";
+                  if (data.error) {
+                      addMessage("bot", "❌ Error:\n" + data.error);
+                  } else {
+                      addMessage("bot", data.response || "(No response text)");
+                  }
+              })
+              .catch(err => {
+                  statusBox.textContent = "";
+                  addMessage("bot", "❌ Request failed:\n" + err.message);
+              });
+          }
 
         // Click "Ask me"
         sendBtn.onclick = () => sendMessage();
@@ -753,48 +780,4 @@
     });
 </script>
 
-<style>
-    .feedback-fab{
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      z-index: 1050;
-      background: #ffffff;
-      color: #0b5ed7;
-      border: 1px solid rgba(0,0,0,0.15);
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-weight: 600;
-      text-decoration: none;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.12);
-      transition:
-        opacity 0.25s ease,
-        transform 0.25s ease,
-        box-shadow 0.25s ease;
-    }
-
-    .feedback-fab{
-      font-family:
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Roboto,
-        "Apple Color Emoji",
-        "Segoe UI Emoji",
-        "Segoe UI Symbol",
-        sans-serif;
-    }
-
-    .feedback-fab.hidden{
-      opacity: 0.35;
-      transform: translateY(10px);
-    }
-
-    .feedback-fab:hover{
-      opacity: 1 !important;
-      transform: translateY(0) !important;
-      box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-    }
-</style>
 {% endblock %}

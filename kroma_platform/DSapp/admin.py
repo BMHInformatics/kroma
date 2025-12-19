@@ -1,8 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
-from .models import AccessRequest
-from .models import ChatLog
+from .models import AccessRequest, ChatLog
 import csv
 
 

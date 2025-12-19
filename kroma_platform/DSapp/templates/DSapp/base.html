@@ -11,6 +11,9 @@
         rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
     >
+    <!-- styles and kroma CSS -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/kroma.css' %}">
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,174 +21,11 @@
     <!-- Markdown parser for chatbot responses -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-<style>
-    body {
-        padding: 0;
-        margin: 0;
-        background-color: #dcdcdc;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-
-    /* Logo styling */
-    .kroma-logo {
-        height: 90px;
-        width: auto;
-    }
-
-    /* Center title never shifts due to flex */
-    .header-title-wrapper {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-    }
-
-    .kroma-title {
-        color: #ffffff;
-        font-size: 2.1rem;
-        font-weight: 700;
-        line-height: 1.1;
-    }
-
-    .kroma-subtitle {
-        color: #dbeafe;
-        font-size: 0.95rem;
-        line-height: 1.2;
-    }
-
-
-    .ds-header {
-        background-color: #0056b3;
-#        padding-top: 0.7rem;
-#        padding-bottom: 0.7rem;
-    }
-
-    .ds-header .navbar-brand {
-        color: #ffffff !important;
-        font-size: 1.9rem;
-        font-weight: 600;
-    }
-
-.user-badge{
-  background: rgba(255,255,255,0.18);
-  border: 1px solid rgba(255,255,255,0.35);
-  color: #fff;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-    .main-container {
-        padding: 0 1.5rem 2rem 1.5rem;
-    }
-
-    .rounded-box {
-        border-radius: 0.85rem;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-        background-color: #dbe8ed;
-        padding: 0.75rem 0.9rem 1rem 0.9rem;
-    }
-
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.35rem;
-        color: #064488;
-    }
-
-    .section-header .reset-btn {
-        font-size: 0.7rem;
-        padding: 0.15rem 0.45rem;
-    }
-
-    .table-scroll {
-        max-height: 380px;
-        overflow-y: auto;
-    }
-
-    .selected-article-card {
-        margin-bottom: 0.75rem;
-    }
-
-    .chart-container {
-        margin-bottom: 1rem;
-    }
-
-    .apply-btn {
-        width: 100%;
-    }
-
-    .articles-count-badge {
-        margin-top: 0.5rem;
-        font-size: 0.85rem;
-    }
-
-    /* Chat bubbles */
-    .chat-msg {
-        margin-bottom: 6px;
-        display: flex;
-    }
-    .chat-msg.user {
-        justify-content: flex-end;
-    }
-    .chat-msg.bot {
-        justify-content: flex-start;
-    }
-    .chat-msg .bubble {
-        max-width: 80%;
-        padding: 6px 10px;
-        border-radius: 10px;
-        font-size: 0.9rem;
-        line-height: 1.3;
-        word-wrap: break-word;
-    }
-    .chat-msg.user .bubble {
-        background-color: #0056b3;
-        color: #ffffff;
-        border-bottom-right-radius: 2px;
-    }
-    .chat-msg.bot .bubble {
-        background-color: #e5e7eb;
-        color: #111827;
-        border-bottom-left-radius: 2px;
-    }
-
-    .box-answer {
-        display: inline-block;
-        border: 2px solid #111;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-weight: bold;
-        margin: 0 2px;
-        background: #fdfdfd;
-    }
-
-        /* Outer big container for Article Knowledge Base (AKB) */
-    .akb-container {
-        background-color: #dbe8ed;
-        padding: 1rem 1rem 1.25rem 1rem;
-    }
-
-    /* Inner boxes inside the AKB container */
-    .inner-box {
-        border-radius: 0.8rem;
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        box-shadow:
-            0 1px 2px rgba(0, 0, 0, 0.06),
-            0 4px 10px rgba(15, 23, 42, 0.08);
-        padding: 0.65rem 0.8rem 0.9rem 0.8rem;
-        margin-bottom: 0.7rem;
-    }
-
-
-</style>
 
     {% block extra_head %}{% endblock %}
+</head>
+
+<body>
 <nav class="navbar navbar-expand-lg ds-header">
     <div class="container-fluid px-4 d-flex align-items-center justify-content-between">
 
@@ -212,14 +52,11 @@
                   Logout
               </button>
           </form>
-
-</div>
-{% endif %}
-
+        </div>
+        {% endif %}
     </div>
 </nav>
-</head>
-<body>
+
 <div class="container-fluid main-container">
     {% block content %}{% endblock %}
 </div>
@@ -248,154 +85,10 @@
   }
 
   window.addEventListener('scroll', onScroll, { passive: true });
-
-  // Ensure it comes back on load (in case page loads mid-scroll position)
   window.addEventListener('load', () => fab.classList.remove('hidden'));
 })();
+
 </script>
 
 </body>
 </html>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const openBtn = document.getElementById("chatbot-button");
-    const popup = document.getElementById("chatbot-popup");
-    const closeBtn = document.getElementById("chatbot-close");
-    const sendBtn = document.getElementById("chatbot-send");
-    const copyBtn = document.getElementById("chatbot-copy");
-
-    const input = document.getElementById("chatbot-input");
-    const responseBox = document.getElementById("chatbot-response");
-    const statusBox = document.getElementById("chatbot-status");
-    const roleSelect = document.getElementById("chatbot-role");
-
-    // Helper: escape HTML for user text
-    function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.innerText = text;
-        return div.innerHTML;
-    }
-
-    function cleanLatex(text) {
-
-        if (!text) return "";
-
-        let cleaned = text;
-
-        // 1. Remove inline math wrappers: $ ... $, \( ... \), \[ ... \]
-        cleaned = cleaned.replace(/\$\s*(.*?)\s*\$/g, "$1");
-        cleaned = cleaned.replace(/\\\(\s*(.*?)\s*\\\)/g, "$1");
-        cleaned = cleaned.replace(/\\\[\s*(.*?)\s*\\\]/g, "$1");
-
-        // 2. Convert \boxed{X} to <span class="box-answer">X</span>
-        cleaned = cleaned.replace(/\\boxed\{(.*?)\}/g,
-            '<span class="box-answer">$1</span>'
-        );
-
-        // 3. Remove simple \textbf{} wrappers but keep the content
-        cleaned = cleaned.replace(/\\textbf\{(.*?)\}/g, "**$1**");
-
-        return cleaned;
-    }
-
-    // Helper: append a chat bubble
-    function addMessage(role, text) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "chat-msg " + (role === "user" ? "user" : "bot");
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble";
-
-        if (role === "bot") {
-
-            // Clean LaTeX artifacts first
-            const clean = cleanLatex(text || "");
-            bubble.innerHTML = marked.parse(clean);
-
-        } else {
-            // user message
-            bubble.innerHTML = escapeHtml(text || "").replace(/\n/g, "<br>");
-        }
-
-        wrapper.appendChild(bubble);
-        responseBox.appendChild(wrapper);
-        responseBox.scrollTop = responseBox.scrollHeight;
-    }
-
-    // Open chatbot
-    openBtn.onclick = () => {
-        popup.style.display = "block";
-        input.focus();
-    };
-
-    // Close chatbot
-    closeBtn.onclick = () => {
-        popup.style.display = "none";
-    };
-
-    // Copy all conversation text
-    copyBtn.onclick = () => {
-        const text = responseBox.innerText;
-        if (!navigator.clipboard) {
-            alert("Clipboard API not available in this browser.");
-            return;
-        }
-        navigator.clipboard.writeText(text)
-            .then(() => {
-                statusBox.textContent = "Conversation copied to clipboard.";
-                setTimeout(() => { statusBox.textContent = ""; }, 3000);
-            })
-            .catch(err => {
-                statusBox.textContent = "Failed to copy: " + err;
-            });
-    };
-
-    // Send question to backend
-    function sendMessage() {
-        const msg = input.value.trim();
-        if (!msg) return;
-
-        // Add user bubble to chat
-        addMessage("user", msg);
-        input.value = "";
-        statusBox.textContent = "Thinking...";
-
-        const role = roleSelect ? roleSelect.value : "clinician";
-
-        fetch("{% url 'DSapp:kg_chat_api' %}", {
-            method: "POST",
-            headers: {
-                "X-CSRFToken": "{{ csrf_token }}",
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: "message=" + encodeURIComponent(msg) +
-                  "&role=" + encodeURIComponent(role)
-        })
-        .then(r => r.json())
-        .then(data => {
-            statusBox.textContent = "";
-            if (data.error) {
-                addMessage("bot", "❌ Error:\n" + data.error);
-            } else {
-                addMessage("bot", data.response || "(No response text)");
-            }
-        })
-        .catch(err => {
-            statusBox.textContent = "";
-            addMessage("bot", "❌ Request failed:\n" + err);
-        });
-    }
-
-    // Button click
-    sendBtn.onclick = () => sendMessage();
-
-    // Enter to send (Shift+Enter for newline)
-    input.addEventListener("keydown", function(e) {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-});
-</script>
