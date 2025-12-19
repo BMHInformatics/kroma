@@ -2,6 +2,7 @@ import os
 import json
 import time
 import rdflib
+import logging
 from django.contrib.auth.decorators import login_required
 from datetime import timedelta
 from django.db.models import Count, Q
@@ -18,6 +19,7 @@ from .models import Article
 from .models import AccessRequest
 from .models import ChatLog
 
+logger = logging.getLogger(__name__)
 
 # Gemini client
 GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
@@ -110,7 +112,6 @@ def get_kg_file_ref():
 
     nt_path = ensure_kg_nt_file()
 
-    # Use a unique name to avoid 409 ALREADY_EXISTS, even across restarts
     unique_name = f"dravet-kg-nt-{int(time.time())}"
 
     KG_FILE_REF = gemini_client.files.upload(
@@ -125,7 +126,7 @@ def index(request):
     # --- 1. Base queryset ---
     qs = Article.objects.using('dsai').all()
 
-    # --- 2. Filters from querystring (GET) ---
+    # --- 2. Filters from querystring ---
     date_filter = request.GET.get('date_filter', 'all')
     start_date = request.GET.get('start_date', '')
     end_date = request.GET.get('end_date', '')
@@ -249,10 +250,6 @@ def index(request):
 
 @login_required
 def kg_chat_api(request):
-    """
-    AJAX endpoint for the popup chatbot.
-    Returns JSON: { "response": "...", "error": "..." }
-    """
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=400)
 
@@ -283,37 +280,35 @@ def kg_chat_api(request):
 
         text = getattr(response, "text", "").strip()
 
-        # ✅ Save chat log (success)
+        # Save chat log
         try:
             ChatLog.objects.create(
                 user=request.user,
-                role=role,
+                user_category=role,
                 model_name=model_name,
                 prompt=user_message,
                 response=text,
                 was_success=True,
                 error_message="",
             )
-        except Exception:
-            # Don't break chatbot if logging fails
-            pass
+        except Exception as log_e:
+            logger.exception("Failed to save ChatLog")
 
         return JsonResponse({"response": text})
 
     except Exception as e:
-        # ✅ Save chat log (failure)
         try:
             ChatLog.objects.create(
                 user=request.user,
-                role=role,
+                user_category=role,
                 model_name=model_name,
                 prompt=user_message,
                 response="",
                 was_success=False,
                 error_message=str(e),
             )
-        except Exception:
-            pass
+        except Exception as log_e:
+            logger.exception("Failed to save ChatLog")
 
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -368,7 +363,6 @@ def request_access(request):
                 )
             except Exception:
                 pass
-        # --- End email notification ---
 
         messages.success(
             request,
@@ -376,5 +370,4 @@ def request_access(request):
         )
         return redirect("DSapp:login")
 
-    # For non-POST, just go back to login
     return redirect("DSapp:login")

@@ -35,11 +35,6 @@ class AccessRequestAdmin(admin.ModelAdmin):
     mark_as_rejected.short_description = "Mark selected requests as REJECTED"
 
     def create_users_from_requests(self, request, queryset):
-        """
-        For each selected AccessRequest:
-        - If no user is linked yet, create a Django user.
-        - Link it to the request and mark status as 'approved'.
-        """
         User = get_user_model()
         created_count = 0
         skipped_existing_user = 0
@@ -54,7 +49,7 @@ class AccessRequestAdmin(admin.ModelAdmin):
             # Use email as username
             username = access_req.email
 
-            # If a user with this username already exists, skip
+            # Skip if a user with this username already exists
             if User.objects.filter(username=username).exists():
                 skipped_existing_user += 1
                 continue
@@ -87,9 +82,6 @@ class AccessRequestAdmin(admin.ModelAdmin):
     create_users_from_requests.short_description = "Create Django users from selected requests"
 
     def export_as_csv(self, request, queryset):
-        """
-        Export selected access requests as a CSV file.
-        """
         # Define the response metadata
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="kroma_access_requests.csv"'
