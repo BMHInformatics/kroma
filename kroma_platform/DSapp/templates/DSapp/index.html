@@ -70,7 +70,61 @@
 <!-- Article Knowledge Base container -->
 <div class="rounded-box akb-container">
     <div class="mb-2">
-        <h5 class="mb-0">Article Knowledge Base</h5>
+
+        <!-- Header + help toggle -->
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Article Knowledge Base</h5>
+            <button class="btn btn-link btn-sm p-0" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#akb-help"
+                    aria-expanded="false" aria-controls="akb-help"
+                    style="text-decoration:none;">
+                ℹ How to use
+            </button>
+        </div>
+
+        <!-- Brief always-visible description -->
+        <div class="text-muted small mt-1">
+            Articles retrieved from PubMed Central using the terms <em>Dravet Syndrome</em> and
+            <em>Severe Myoclonic Epilepsy of Infancy</em>. Some articles may mention Dravet Syndrome
+            without being primarily focused on it.
+        </div>
+
+        <!-- Collapsible help panel -->
+        <div id="akb-help" class="collapse mt-2">
+            <div class="alert alert-secondary small mb-0">
+                <p class="mb-2">
+                    This section allows you to explore and filter articles retrieved from PubMed Central that mention
+                    Dravet Syndrome or Severe Myoclonic Epilepsy of Infancy.
+                </p>
+
+                <ul class="mb-2">
+                    <li>
+                        <strong>Not all articles are Dravet-focused.</strong>
+                        Some papers include Dravet Syndrome as part of a broader epilepsy cohort or background discussion.
+                    </li>
+                    <li>
+                        To view articles that specifically study Dravet Syndrome, select <strong>“Yes”</strong> in the
+                        <strong>DS-related</strong> filter on the left.
+                    </li>
+                    <li>
+                        Article classification and annotation are still in progress. As a result, some metadata, table entries,
+                        and summary charts may be incomplete.
+                    </li>
+                    <li>
+                        The database will be updated regularly as new articles become available.
+                    </li>
+                </ul>
+
+                <p class="mb-1"><strong>Recommended workflow:</strong></p>
+                <ol class="mb-0">
+                    <li>Use the filters on the left to narrow the articles of interest.</li>
+                    <li>Click <strong>Apply filters</strong> to update the table.</li>
+                    <li>Select one or more articles from the table.</li>
+                    <li>Click <strong>Show details for selected articles</strong>.</li>
+                    <li>Review article details, abstracts, PDF files, and external links below the table.</li>
+                </ol>
+            </div>
+        </div>
     </div>
 
     <div class="row">
@@ -119,6 +173,9 @@
                         <option value="Yes" {% if ds_filter == 'Yes' %}selected{% endif %}>Yes</option>
                         <option value="No"  {% if ds_filter == 'No' %}selected{% endif %}>No</option>
                     </select>
+                    <small class="text-muted d-block mt-1">
+                        Select “Yes” to show articles that specifically study Dravet Syndrome.
+                    </small>
                 </div>
 
                 <!-- Organism -->
@@ -204,6 +261,10 @@
                     <button type="submit" class="btn btn-primary btn-sm apply-btn">
                         Apply filters
                     </button>
+                    <small class="text-muted d-block mt-1">
+                        Filters are applied only after clicking this button.
+                    </small>
+
                     <div class="alert alert-info articles-count-badge mb-0 mt-2 py-1 px-2">
                         <strong>{{ total_count }}</strong> articles match current filters.
                     </div>
@@ -264,6 +325,9 @@
                     <button type="submit" class="btn btn-success btn-sm mt-1">
                         Show details for selected articles
                     </button>
+                    <small class="text-muted d-block mt-1">
+                        Displays abstracts, PDF files, and external links for the selected articles below.
+                    </small>
                 </form>
             </div>
 
