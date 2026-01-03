@@ -18,16 +18,6 @@
                     <option value="scientist">Basic scientist</option>
                 </select>
             </label>
-
-            <label style="font-size:0.75rem; margin-top:2px; display:block;">
-                <input type="checkbox" id="show-kg-summary" checked>
-                Show KG grounding summary
-            </label>
-
-            <label style="font-size:0.75rem; margin-top:2px; display:block;">
-                <input type="checkbox" id="show-triples">
-                Show raw triples (advanced)
-            </label>
         </div>
         <div>
             <button id="chatbot-copy"
@@ -637,30 +627,6 @@
         const statusBox  = document.getElementById("chatbot-status");
         const roleSelect = document.getElementById("chatbot-role");
 
-        const showKgSummaryCb = document.getElementById("show-kg-summary");
-        const showTriplesCb = document.getElementById("show-triples");
-
-        function applyRoleDefaults() {
-            const role = roleSelect ? roleSelect.value : "clinician";
-            if (!showKgSummaryCb || !showTriplesCb) return;
-
-            if (role === "patient") {
-                showKgSummaryCb.checked = false;
-                showTriplesCb.checked = false;
-                showTriplesCb.disabled = true;
-            } else {
-                showKgSummaryCb.checked = true;
-                showTriplesCb.disabled = false;
-                showTriplesCb.checked = false;
-            }
-        }
-
-        if (roleSelect) {
-            roleSelect.addEventListener("change", applyRoleDefaults);
-        }
-        applyRoleDefaults();
-
-
         if (!sendBtn || !input || !responseBox) return;
 
         // Escape HTML for user text
@@ -783,9 +749,7 @@
                   },
                   body: new URLSearchParams({
                       message: msg,
-                      role: role,
-                      show_kg_summary: (document.getElementById("show-kg-summary") && document.getElementById("show-kg-summary").checked) ? "1" : "0",
-                      show_triples: (document.getElementById("show-triples") && document.getElementById("show-triples").checked) ? "1" : "0"
+                      role: role
                   }).toString()
               })
               .then(async (r) => {

@@ -2,7 +2,6 @@ import os
 import json
 import time
 import rdflib
-import re
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.views.decorators.http import require_POST
@@ -18,7 +17,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from pathlib import Path
 from google import genai
-from google.genai.types import UploadFileConfig, GenerateContentConfig
+from google.genai.types import UploadFileConfig
 from .models import Article, AccessRequest, ChatLog
 
 User = get_user_model()
@@ -33,86 +32,43 @@ CLINICIAN_INSTRUCTION = (
     "or study patients with Dravet Syndrome. You answer at a professional level using precise "
     "clinical language (e.g., seizure semiology, comorbidities, pharmacologic options, prognosis, "
     "and clinical trial evidence). "
-    "You have access to a Dravet Syndrome knowledge graph (KG) provided as N-Triples. Use the KG to "
+    "You have access to a Dravet Syndrome knowledge graph provided as N-Triples. Use this file to "
     "contextualize and ground your answers, but you do not need to quote individual triples. "
-    "You are also a general LLM and may use your broader medical and scientific training knowledge; "
-    "treat KG-grounded statements as higher priority when available, and clearly label statements that "
-    "are based on general knowledge when the KG is silent. "
-    "When the KG does not address the question, answer from general clinical knowledge without commenting on KG availability. "
-    "IMPORTANT: In your main answer, do NOT mention the knowledge graph at all. "
-    "Do NOT say 'the KG does/does not contain...' or similar. "
-    "If the KG is missing information, still answer using general medical knowledge, and simply state uncertainty if needed. "
-    "Only discuss KG support/gaps in a separate optional section that appears ONLY if the user request contains <<SHOW_KG_SUMMARY>>. "
+    "You may also rely on your broader medical and scientific training data, but be explicit when "
+    "the knowledge graph does or does not clearly support a statement. "
     "Only provide general educational information, not personalized medical advice, diagnosis, or "
     "treatment recommendations for a specific patient. When asked about management or treatment, "
     "describe general principles, typical options, and supporting evidence, and remind the user to "
     "consult guidelines and the patient’s treating clinicians for decisions. Be concise but precise."
-
-    "OUTPUT FORMAT (INTERNAL — DO NOT EXPOSE TO USER):\n"
-    "[[ANSWER]]\n"
-    "- Main response text goes here.\n\n"
-    "- Provide a direct clinical answer first. Do NOT mention the knowledge graph. Do NOT include triples.\n\n"
-    "[[KG_SUMMARY]] (ONLY IF REQUESTED)\n"
-    "- Plain-language KG grounding summary.\n\n"
-    "- Include ONLY if the user request contains <<SHOW_KG_SUMMARY>>.\n"
-    "- Provide 3–6 bullets summarizing which KG relationships supported the answer and where KG coverage is thin.\n\n"
-    "[[RAW_TRIPLES]] (ONLY IF REQUESTED)\n"
-    "- Output raw N-Triples as plain lines only (no bullets, no numbering, no extra text), one triple per line.\n"
-    "- Include ONLY if the user request contains <<SHOW_TRIPLES>>.\n"
-    "- If included, show at most 10 relevant N-Triples.\n"
 )
-
 
 PATIENT_INSTRUCTION = (
     "You are an empathetic educator for people living with Dravet Syndrome, their parents, families, "
     "and caregivers. Your goal is to explain concepts clearly, in non-technical language, using short "
     "paragraphs and concrete examples. Avoid medical jargon whenever possible; when you must use a "
     "technical term, briefly define it in simple words. "
-    "You have access to a Dravet Syndrome knowledge graph (KG) provided as N-Triples, which you use to keep "
-    "your answers accurate and focused, but you should not mention the KG or show triples. "
-    "You are also a general LLM and may use your broader medical knowledge; treat KG-grounded statements as higher "
-    "priority when available, and avoid overconfident claims when evidence is limited. "
-    "Do not provide personal medical advice, diagnosis, or specific treatment instructions for "
+    "You have access to a Dravet Syndrome knowledge graph provided as N-Triples, which you use to keep "
+    "your answers accurate and focused, but you should not mention the knowledge graph itself. "
+    "You must not provide personal medical advice, diagnosis, or specific treatment instructions for "
     "an individual. Instead, offer general educational information, explain what kinds of questions "
     "they might ask their neurologist or care team, and encourage shared decision-making. "
     "Acknowledge that living with Dravet Syndrome is stressful and challenging, but keep your tone calm, "
     "supportive, and realistic—avoid false reassurance. If the available evidence is limited, say that clearly."
 )
 
-
 SCIENTIST_INSTRUCTION = (
     "You are a technical consultant for basic and translational researchers working on Dravet Syndrome. "
-    "You have access to a Dravet Syndrome knowledge graph (KG) provided as N-Triples. Use the KG to ground "
-    "and contextualize your answer, but you are also a general LLM: you may and should use your broader "
-    "preclinical and mechanistic training knowledge when the KG is incomplete. Treat the KG as high-priority "
-    "evidence when it speaks clearly; otherwise, supplement from general knowledge.\n\n"
-
-    "CRITICAL RULES:\n"
-    "1) Always answer the user’s question directly first.\n"
-    "2) In Tier 1 and Tier 2, do NOT show or reference any raw KG identifiers, URIs, URLs, angle-bracket tokens, "
-    "or strings like 'http://', 'https://', 'example.org', '<...>', 'KG-grounded:', 'subject/predicate/object', or 'triple(s)'.\n"
-    "3) Never include triple syntax anywhere except Tier 3.\n"
-    "4) Never imply you can ONLY use the KG. Use both KG + pretrained knowledge; if something is not in the KG, "
-    "you may still answer from general knowledge, but label it as 'general knowledge' with uncertainty.\n"
-    "5) Do not fabricate citations or trial identifiers.\n\n"
-
-    "OUTPUT FORMAT (INTERNAL — DO NOT EXPOSE TO USER):\n"
-    "[[ANSWER]]\n"
-    "- Main response text goes here.\n\n"
-    "- Concise technical synthesis (mechanisms, models, readouts, design). NO triples.\n\n"
-    "[[KG_SUMMARY]] (ONLY IF REQUESTED)\n"
-    "- Plain-language KG grounding summary.\n\n"
-    "- Include this section ONLY if the user request contains <<SHOW_KG_SUMMARY>>.\n"
-    "- Provide 3–6 bullets in plain English describing what KG relationships supported the answer and where KG coverage is thin.\n"
-    "- Do NOT include URIs/URLs/identifiers or triple syntax here.\n\n"
-    "[[RAW_TRIPLES]] (ONLY IF REQUESTED)\n"
-    "- Output raw N-Triples as plain lines only (no bullets, no numbering, no extra text), one triple per line.\n"
-    "- Include this section ONLY if the user request contains <<SHOW_TRIPLES>>.\n"
-    "- If included, show at most 10 relevant N-Triples.\n"
+    "You have access to a Dravet Syndrome knowledge graph provided as N-Triples, which encodes relationships "
+    "among genes, variants, pathways, models, drugs, phenotypes, and outcomes. Use the knowledge graph to "
+    "orient to known entities and relationships and to identify densely connected versus sparsely studied areas. "
+    "You may also rely on your broader preclinical and mechanistic training data. "
+    "Emphasize mechanisms, experimental readouts, animal and cellular models, pharmacology, and study design "
+    "considerations (e.g., endpoints, controls, translational relevance). "
+    "You may suggest hypothesis directions, comparisons between models, or candidate targets, but do not fabricate "
+    "specific experimental results and be cautious about over-interpretation. Be explicit about uncertainty and "
+    "about where the knowledge graph appears thin or inconsistent. Write in a concise, technical style suitable "
+    "for basic scientists."
 )
-
-
-
 
 def get_system_instruction_for_role(role: str) -> str:
     role = (role or "").lower()
@@ -341,28 +297,14 @@ def kg_chat_api(request):
         uploaded_file = get_kg_file_ref()
         system_instruction = get_system_instruction_for_role(role)
 
-        show_kg_summary = request.POST.get("show_kg_summary", "0") == "1"
-        show_triples = request.POST.get("show_triples", "0") == "1"
-
-        user_payload = user_message
-        if show_kg_summary:
-            user_payload += "\n\n<<SHOW_KG_SUMMARY>>"
-        if show_triples:
-            user_payload += "\n\n<<SHOW_TRIPLES>>"
-
-        contents = [uploaded_file, f"User question: {user_payload}"]
+        contents = [uploaded_file, system_instruction, f"User question: {user_message}"]
 
         response = gemini_client.models.generate_content(
             model=model_name,
             contents=contents,
-            config=GenerateContentConfig(
-                system_instruction=system_instruction,
-            ),
         )
 
         text = getattr(response, "text", "").strip()
-        text = _sanitize_tier1(text)
-        text = _finalize_output_for_user(text)
 
         log.response = text
         log.was_success = True
@@ -430,102 +372,3 @@ def request_access(request):
         return redirect("DSapp:login")
 
     return redirect("DSapp:login")
-
-
-def _sanitize_tier1(text: str) -> str:
-    """
-    Removes KG URIs / URLs / 'KG-grounded:' parentheticals ONLY from Tier 1.
-    Leaves Tier 2 and Tier 3 untouched.
-    """
-    if not text:
-        return text
-
-    # Identify Tier boundaries (we'll be generous about formatting)
-    tier2_markers = [
-        "\nTIER 2",
-        "\nTier 2",
-        "\nKG grounding summary",
-        "\nKG Grounding Summary",
-    ]
-
-    split_idx = None
-    for m in tier2_markers:
-        i = text.find(m)
-        if i != -1:
-            split_idx = i
-            break
-
-    if split_idx is None:
-        # No Tier 2 marker; still strip obvious URI leakage from entire output cautiously
-        tier1 = text
-        rest = ""
-    else:
-        tier1 = text[:split_idx]
-        rest = text[split_idx:]
-
-    # Remove "(KG-grounded: ...)" or "(general knowledge, partially KG-grounded: ...)" style parentheticals in Tier 1
-    tier1 = re.sub(r"\((?:[^)]*?)KG-grounded[^)]*?\)", "", tier1, flags=re.IGNORECASE)
-    tier1 = re.sub(r"\((?:[^)]*?)example\.org[^)]*?\)", "", tier1, flags=re.IGNORECASE)
-
-    # Remove any naked URLs/URIs in Tier 1
-    tier1 = re.sub(r"https?://\S+", "", tier1, flags=re.IGNORECASE)
-
-    # Remove any stray angle-bracketed tokens that look like IRIs
-    tier1 = re.sub(r"<https?://[^>]+>", "", tier1, flags=re.IGNORECASE)
-
-    # Clean up double spaces left by removals
-    tier1 = re.sub(r"[ \t]{2,}", " ", tier1)
-    tier1 = re.sub(r"\n{3,}", "\n\n", tier1).strip()
-
-    # Ensure we keep a trailing newline before the rest
-    if rest:
-        return tier1 + "\n" + rest.lstrip()
-    return tier1
-
-
-def _finalize_output_for_user(text: str) -> str:
-    """
-    Removes internal tier markers before returning text to the UI.
-    """
-    if not text:
-        return text
-
-    # Remove internal markers
-    text = text.replace("[[ANSWER]]", "").strip()
-    text = text.replace("[[KG_SUMMARY]]", "\n\n**Knowledge graph grounding summary:**\n").strip()
-    text = text.replace("[[RAW_TRIPLES]]", "\n\n**Raw triples:**\n").strip()
-
-    # --- Clean Raw triples section: keep only valid-looking N-Triples lines ---
-    # If the model emits garbage like "< < < .", we remove it.
-    if "**Raw triples:**" in text:
-        parts = text.split("**Raw triples:**", 1)
-        before = parts[0]
-        after = parts[1]
-
-        # Stop at end if there's nothing after; otherwise parse lines
-        triple_lines = []
-        for line in after.splitlines():
-            s = line.strip()
-            if not s:
-                continue
-            # Accept reasonable N-Triples patterns:
-            # 1) "<...> <...> <...> ." OR
-            # 2) "http... http... http... ." (if your model outputs without <>)
-            # Must end with '.' and contain at least 3 URI-ish tokens.
-            if s.endswith("."):
-                uri_count = len(re.findall(r"https?://\S+", s)) + len(re.findall(r"<https?://[^>]+>", s))
-                if uri_count >= 3:
-                    triple_lines.append(s)
-
-        if triple_lines:
-            # Rebuild with cleaned triples only
-            cleaned_after = "\n" + "\n".join(triple_lines)
-            text = before.rstrip() + "\n\n**Raw triples:**" + cleaned_after
-        else:
-            # If nothing valid, drop the Raw triples section entirely
-            text = before.rstrip()
-
-    # Clean up excessive blank lines
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    return text.strip()
