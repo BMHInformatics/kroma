@@ -42,24 +42,25 @@ CLINICIAN_INSTRUCTION = (
     "IMPORTANT: In your main answer, do NOT mention the knowledge graph at all. "
     "Do NOT say 'the KG does/does not contain...' or similar. "
     "If the KG is missing information, still answer using general medical knowledge, and simply state uncertainty if needed. "
-    "Only discuss KG support/gaps in a separate optional section that appears ONLY if the user request contains <<SHOW_KG_SUMMARY>>. "
+    "Only discuss KG support/gaps in a separate optional section titled `Knowledge Graph Grounding Summary`. "
     "Only provide general educational information, not personalized medical advice, diagnosis, or "
     "treatment recommendations for a specific patient. When asked about management or treatment, "
     "describe general principles, typical options, and supporting evidence, and remind the user to "
     "consult guidelines and the patient’s treating clinicians for decisions. Be concise but precise."
 
     "OUTPUT FORMAT (INTERNAL — DO NOT EXPOSE TO USER):\n"
+    "Use the seperator `---***---\n` to dilineate sections.\n"
     "[[ANSWER]]\n"
     "- Main response text goes here.\n\n"
     "- Provide a direct clinical answer first. Do NOT mention the knowledge graph. Do NOT include triples.\n\n"
+    "---***---\n"
     "[[KG_SUMMARY]] (ONLY IF REQUESTED)\n"
     "- Plain-language KG grounding summary.\n\n"
-    "- Include ONLY if the user request contains <<SHOW_KG_SUMMARY>>.\n"
     "- Provide 3–6 bullets summarizing which KG relationships supported the answer and where KG coverage is thin.\n\n"
+    "---***---\n"
     "[[RAW_TRIPLES]] (ONLY IF REQUESTED)\n"
     "- Output raw N-Triples as plain lines only (no bullets, no numbering, no extra text), one triple per line.\n"
-    "- Include ONLY if the user request contains <<SHOW_TRIPLES>>.\n"
-    "- If included, show at most 10 relevant N-Triples.\n"
+    "- Show at most 10 relevant N-Triples.\n"
 )
 
 
@@ -97,18 +98,18 @@ SCIENTIST_INSTRUCTION = (
     "5) Do not fabricate citations or trial identifiers.\n\n"
 
     "OUTPUT FORMAT (INTERNAL — DO NOT EXPOSE TO USER):\n"
+    "Use the seperator `---***---\n` to dilineate sections.\n"
     "[[ANSWER]]\n"
     "- Main response text goes here.\n\n"
-    "- Concise technical synthesis (mechanisms, models, readouts, design). NO triples.\n\n"
+    "- Provide a direct clinical answer first. Do NOT mention the knowledge graph. Do NOT include triples.\n\n"
+    "---***---\n"
     "[[KG_SUMMARY]] (ONLY IF REQUESTED)\n"
     "- Plain-language KG grounding summary.\n\n"
-    "- Include this section ONLY if the user request contains <<SHOW_KG_SUMMARY>>.\n"
-    "- Provide 3–6 bullets in plain English describing what KG relationships supported the answer and where KG coverage is thin.\n"
-    "- Do NOT include URIs/URLs/identifiers or triple syntax here.\n\n"
+    "- Provide 3–6 bullets summarizing which KG relationships supported the answer and where KG coverage is thin.\n\n"
+    "---***---\n"
     "[[RAW_TRIPLES]] (ONLY IF REQUESTED)\n"
     "- Output raw N-Triples as plain lines only (no bullets, no numbering, no extra text), one triple per line.\n"
-    "- Include this section ONLY if the user request contains <<SHOW_TRIPLES>>.\n"
-    "- If included, show at most 10 relevant N-Triples.\n"
+    "- Show at most 10 relevant N-Triples.\n"
 )
 
 
@@ -341,16 +342,17 @@ def kg_chat_api(request):
         uploaded_file = get_kg_file_ref()
         system_instruction = get_system_instruction_for_role(role)
 
-        show_kg_summary = request.POST.get("show_kg_summary", "0") == "1"
-        show_triples = request.POST.get("show_triples", "0") == "1"
+        # show_kg_summary = request.POST.get("show_kg_summary", "0") == "1"
+        # show_triples = request.POST.get("show_triples", "0") == "1"
 
-        user_payload = user_message
-        if show_kg_summary:
-            user_payload += "\n\n<<SHOW_KG_SUMMARY>>"
-        if show_triples:
-            user_payload += "\n\n<<SHOW_TRIPLES>>"
+        # user_payload = user_message
+        # if show_kg_summary:
+        #     user_payload += "\n\n<<SHOW_KG_SUMMARY>>"
+        # if show_triples:
+        #     user_payload += "\n\n<<SHOW_TRIPLES>>"
 
-        contents = [uploaded_file, f"User question: {user_payload}"]
+        # contents = [uploaded_file, f"User question: {user_payload}"]
+        contents = [uploaded_file, f"User question: {user_message}"]
 
         response = gemini_client.models.generate_content(
             model=model_name,
@@ -361,15 +363,20 @@ def kg_chat_api(request):
         )
 
         text = getattr(response, "text", "").strip()
-        text = _sanitize_tier1(text)
-        text = _finalize_output_for_user(text)
+        # text = _sanitize_tier1(text)
+        # text = _finalize_output_for_user(text)
+        response, kg_summary, used_triples = text.split("---***---")
+        response = _sanitize_tier1(response)
+        response = _finalize_output_for_user(response)
+
 
         log.response = text
         log.was_success = True
         log.error_message = ""
         log.save(using=db, update_fields=["response", "was_success", "error_message"])
 
-        return JsonResponse({"response": text})
+        # TODO: Add reference section to response & have kg summary show up with seperate button
+        return JsonResponse({"response": response}) 
 
     except Exception as e:
         return JsonResponse({"error": f"{type(e).__name__}: {str(e)}"}, status=500)
@@ -440,28 +447,29 @@ def _sanitize_tier1(text: str) -> str:
     if not text:
         return text
 
-    # Identify Tier boundaries (we'll be generous about formatting)
-    tier2_markers = [
-        "\nTIER 2",
-        "\nTier 2",
-        "\nKG grounding summary",
-        "\nKG Grounding Summary",
-    ]
+    # # Identify Tier boundaries (we'll be generous about formatting)
+    # tier2_markers = [
+    #     "\nTIER 2",
+    #     "\nTier 2",
+    #     "\nKG grounding summary",
+    #     "\nKG Grounding Summary",
+    # ]
 
-    split_idx = None
-    for m in tier2_markers:
-        i = text.find(m)
-        if i != -1:
-            split_idx = i
-            break
+    # split_idx = None
+    # for m in tier2_markers:
+    #     i = text.find(m)
+    #     if i != -1:
+    #         split_idx = i
+    #         break
 
-    if split_idx is None:
-        # No Tier 2 marker; still strip obvious URI leakage from entire output cautiously
-        tier1 = text
-        rest = ""
-    else:
-        tier1 = text[:split_idx]
-        rest = text[split_idx:]
+    # if split_idx is None:
+    #     # No Tier 2 marker; still strip obvious URI leakage from entire output cautiously
+    #     tier1 = text
+    #     rest = ""
+    # else:
+    #     tier1 = text[:split_idx]
+    #     rest = text[split_idx:]
+    tier1 = text
 
     # Remove "(KG-grounded: ...)" or "(general knowledge, partially KG-grounded: ...)" style parentheticals in Tier 1
     tier1 = re.sub(r"\((?:[^)]*?)KG-grounded[^)]*?\)", "", tier1, flags=re.IGNORECASE)
@@ -477,9 +485,9 @@ def _sanitize_tier1(text: str) -> str:
     tier1 = re.sub(r"[ \t]{2,}", " ", tier1)
     tier1 = re.sub(r"\n{3,}", "\n\n", tier1).strip()
 
-    # Ensure we keep a trailing newline before the rest
-    if rest:
-        return tier1 + "\n" + rest.lstrip()
+    # # Ensure we keep a trailing newline before the rest
+    # if rest:
+    #     return tier1 + "\n" + rest.lstrip()
     return tier1
 
 
