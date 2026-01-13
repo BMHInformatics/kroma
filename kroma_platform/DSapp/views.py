@@ -20,6 +20,7 @@ from pathlib import Path
 from google import genai
 from google.genai.types import UploadFileConfig, GenerateContentConfig
 from .models import Article, AccessRequest, ChatLog
+import pandas as pd #TODO: temporary - remove when CSV bandaid is removed
 
 User = get_user_model()
 
@@ -42,7 +43,7 @@ CLINICIAN_INSTRUCTION = (
     "IMPORTANT: In your main answer, do NOT mention the knowledge graph at all. "
     "Do NOT say 'the KG does/does not contain...' or similar. "
     "If the KG is missing information, still answer using general medical knowledge, and simply state uncertainty if needed. "
-    "Only discuss KG support/gaps in a separate optional section titled `Knowledge Graph Grounding Summary`. "
+    "Only discuss KG support/gaps in a separate [[KG_SUMMARY]] section. "
     "Only provide general educational information, not personalized medical advice, diagnosis, or "
     "treatment recommendations for a specific patient. When asked about management or treatment, "
     "describe general principles, typical options, and supporting evidence, and remind the user to "
@@ -342,16 +343,6 @@ def kg_chat_api(request):
         uploaded_file = get_kg_file_ref()
         system_instruction = get_system_instruction_for_role(role)
 
-        # show_kg_summary = request.POST.get("show_kg_summary", "0") == "1"
-        # show_triples = request.POST.get("show_triples", "0") == "1"
-
-        # user_payload = user_message
-        # if show_kg_summary:
-        #     user_payload += "\n\n<<SHOW_KG_SUMMARY>>"
-        # if show_triples:
-        #     user_payload += "\n\n<<SHOW_TRIPLES>>"
-
-        # contents = [uploaded_file, f"User question: {user_payload}"]
         contents = [uploaded_file, f"User question: {user_message}"]
 
         response = gemini_client.models.generate_content(
@@ -363,11 +354,15 @@ def kg_chat_api(request):
         )
 
         text = getattr(response, "text", "").strip()
-        # text = _sanitize_tier1(text)
-        # text = _finalize_output_for_user(text)
         response, kg_summary, used_triples = text.split("---***---")
         response = _sanitize_tier1(response)
         response = _finalize_output_for_user(response)
+
+        #TODO: Put kg_summary into popup box
+
+        # Get references based on used_triples
+        # TODO: Do we want triples from any other sections too?
+        references = _get_references(used_triples)
 
 
         log.response = text
@@ -376,7 +371,7 @@ def kg_chat_api(request):
         log.save(using=db, update_fields=["response", "was_success", "error_message"])
 
         # TODO: Add reference section to response & have kg summary show up with seperate button
-        return JsonResponse({"response": response}) 
+        return JsonResponse({"response": response, "references": list(references)}) 
 
     except Exception as e:
         return JsonResponse({"error": f"{type(e).__name__}: {str(e)}"}, status=500)
@@ -537,3 +532,51 @@ def _finalize_output_for_user(text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
+
+def _get_references(text: str) -> str:
+
+    # Load CSV
+    # TODO: Replace with DB lookups
+    media_root = Path(settings.MEDIA_ROOT)
+    csv_path = media_root/"triples_article_01.13.2026.csv"
+    df = pd.read_csv(csv_path, dtype=str)
+    
+    # Normalize for matching (# TODO: Should already by normalized to lowercase in DB)
+    df["Subject"] = df["Subject"].str.lower()
+    df["Predicate"] = df["Predicate"].str.lower()
+    df["Object"] = df["Object"].str.lower()
+
+    pmcids = set()
+
+    # Regex to extract triples of the form: <subj> <pred> <obj> .
+    triple_pattern = re.compile(r"<([^>]+)>\s+<([^>]+)>\s+<([^>]+)>\s*\.")
+
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("[["):
+            continue
+
+        match = triple_pattern.match(line)
+        if not match:
+            continue
+
+        subj_uri, pred_uri, obj_uri = match.groups()
+
+        subject = subj_uri.rstrip(">").split("/")[-1].lower()
+        predicate = pred_uri.rstrip(">").split("/")[-1].lower()
+        obj = obj_uri.rstrip(">").split("/")[-1].lower()
+
+        matches = df[
+            (df["Subject"] == subject) &
+            (df["Predicate"] == predicate) &
+            (df["Object"] == obj)
+        ]
+
+        if not matches.empty:
+            pmcids.update(matches["PMCID"].dropna().tolist())
+
+    if not pmcids:
+        # TODO: Handle what happens if none of our triples have an available reference
+        fake_list = set("5431801", "7443476", "9292928")
+        return fake_list
+    return sorted(pmcids)
