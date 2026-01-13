@@ -683,6 +683,31 @@
         }
     });
 
+function renderReferences(refs) {
+    if (!refs || refs.length === 0) return "";
+
+    let html = `
+        <div class="kroma-references">
+            <button class="btn btn-link btn-sm p-0 ref-toggle"
+                    onclick="this.nextElementSibling.classList.toggle('d-none')">
+                📚 References (${refs.length})
+            </button>
+            <ul class="list-unstyled d-none mt-1 mb-0">
+    `;
+
+    refs.forEach(r => {
+        html += `
+            <li style="font-size:0.82rem;">
+                <a href="${r.url}" target="_blank" rel="noopener">
+                    ${r.title}
+                </a>
+            </li>
+        `;
+    });
+
+    html += "</ul></div>";
+    return html;
+}
     // --------- CHATBOX (KroMA) ----------
     document.addEventListener("DOMContentLoaded", function() {
         const sendBtn    = document.getElementById("chatbot-send");
@@ -774,6 +799,7 @@
             wrapper.appendChild(bubble);
             responseBox.appendChild(wrapper);
             responseBox.scrollTop = responseBox.scrollHeight;
+            return bubble;
         }
 
         // Copy all conversation text
@@ -857,7 +883,8 @@
                   if (data.error) {
                       addMessage("bot", "❌ Error:\n" + data.error);
                   } else {
-                      addMessage("bot", data.response || "(No response text)");
+                      const bubble = addMessage("bot", data.response || "(No response text)");
+                      appendReferences(bubble, data.references);
                   }
               })
               .catch(err => {
@@ -877,6 +904,44 @@
             }
         });
     });
+
+function appendReferences(bubble, refs) {
+    if (!refs || refs.length === 0) return;
+
+    const container = document.createElement("div");
+    container.className = "kroma-references";
+    container.style.marginTop = "6px";
+    container.style.borderTop = "1px dashed #ddd";
+    container.style.paddingTop = "4px";
+
+    const toggle = document.createElement("button");
+    toggle.className = "btn btn-link btn-sm p-0";
+    toggle.textContent = `📚 References (${refs.length})`;
+
+    const list = document.createElement("ul");
+    list.className = "list-unstyled mt-1 mb-0 d-none";
+
+    toggle.onclick = () => list.classList.toggle("d-none");
+
+    refs.forEach(r => {
+        const li = document.createElement("li");
+        li.style.fontSize = "0.82rem";
+
+        const a = document.createElement("a");
+        a.href = r.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = r.title;
+
+        li.appendChild(a);
+        list.appendChild(li);
+    });
+
+    container.appendChild(toggle);
+    container.appendChild(list);
+    bubble.appendChild(container);
+}
+
 </script>
 
 {% endblock %}

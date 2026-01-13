@@ -239,3 +239,17 @@ body {
   transform: translateY(0) !important;
   box-shadow: 0 10px 22px rgba(0,0,0,0.18);
 }
+
+.kroma-references {
+    margin-top: 6px;
+    border-top: 1px dashed #ddd;
+    padding-top: 4px;
+}
+
+.kroma-references a {
+    text-decoration: none;
+}
+
+.kroma-references a:hover {
+    text-decoration: underline;
+}

@@ -354,7 +354,11 @@ def kg_chat_api(request):
         )
 
         text = getattr(response, "text", "").strip()
-        response, kg_summary, used_triples = text.split("---***---")
+        parts = [p.strip() for p in text.split("---***---") if p.strip()]
+
+        response = parts[0] if len(parts) > 0 else ""
+        kg_summary = parts[1] if len(parts) > 1 else ""
+        used_triples = parts[2] if len(parts) > 2 else ""
         response = _sanitize_tier1(response)
         response = _finalize_output_for_user(response)
 
@@ -364,6 +368,21 @@ def kg_chat_api(request):
         # TODO: Do we want triples from any other sections too?
         references = _get_references(used_triples)
 
+        # Resolve PMCIDs to article metadata
+        articles = (
+            Article.objects.using("dsai")
+            .filter(pmcid__in=references)
+            .values("pmcid", "title", "url")
+        )
+
+        reference_payload = [
+            {
+                "pmcid": a["pmcid"],
+                "title": a["title"],
+                "url": a["url"],
+            }
+            for a in articles
+        ]
 
         log.response = text
         log.was_success = True
@@ -371,7 +390,10 @@ def kg_chat_api(request):
         log.save(using=db, update_fields=["response", "was_success", "error_message"])
 
         # TODO: Add reference section to response & have kg summary show up with seperate button
-        return JsonResponse({"response": response, "references": list(references)}) 
+        return JsonResponse({
+            "response": response,
+            "references": reference_payload
+        })
 
     except Exception as e:
         return JsonResponse({"error": f"{type(e).__name__}: {str(e)}"}, status=500)
@@ -488,50 +510,24 @@ def _sanitize_tier1(text: str) -> str:
 
 def _finalize_output_for_user(text: str) -> str:
     """
-    Removes internal tier markers before returning text to the UI.
+    Returns ONLY the user-facing answer.
+    Hides KG summary and raw triples from the UI,
+    but they remain stored in ChatLog.response.
     """
     if not text:
         return text
 
-    # Remove internal markers
+    # Keep only content before the first section separator
+    if "---***---" in text:
+        text = text.split("---***---", 1)[0]
+
+    # Remove internal answer marker
     text = text.replace("[[ANSWER]]", "").strip()
-    text = text.replace("[[KG_SUMMARY]]", "\n\n**Knowledge graph grounding summary:**\n").strip()
-    text = text.replace("[[RAW_TRIPLES]]", "\n\n**Raw triples:**\n").strip()
 
-    # --- Clean Raw triples section: keep only valid-looking N-Triples lines ---
-    # If the model emits garbage like "< < < .", we remove it.
-    if "**Raw triples:**" in text:
-        parts = text.split("**Raw triples:**", 1)
-        before = parts[0]
-        after = parts[1]
-
-        # Stop at end if there's nothing after; otherwise parse lines
-        triple_lines = []
-        for line in after.splitlines():
-            s = line.strip()
-            if not s:
-                continue
-            # Accept reasonable N-Triples patterns:
-            # 1) "<...> <...> <...> ." OR
-            # 2) "http... http... http... ." (if your model outputs without <>)
-            # Must end with '.' and contain at least 3 URI-ish tokens.
-            if s.endswith("."):
-                uri_count = len(re.findall(r"https?://\S+", s)) + len(re.findall(r"<https?://[^>]+>", s))
-                if uri_count >= 3:
-                    triple_lines.append(s)
-
-        if triple_lines:
-            # Rebuild with cleaned triples only
-            cleaned_after = "\n" + "\n".join(triple_lines)
-            text = before.rstrip() + "\n\n**Raw triples:**" + cleaned_after
-        else:
-            # If nothing valid, drop the Raw triples section entirely
-            text = before.rstrip()
-
-    # Clean up excessive blank lines
+    # Final cleanup
     text = re.sub(r"\n{3,}", "\n\n", text)
 
-    return text.strip()
+    return text
 
 def _get_references(text: str) -> str:
 
@@ -577,6 +573,6 @@ def _get_references(text: str) -> str:
 
     if not pmcids:
         # TODO: Handle what happens if none of our triples have an available reference
-        fake_list = set("5431801", "7443476", "9292928")
+        fake_list = {"2745418", "3547637", "4010885"}
         return fake_list
     return sorted(pmcids)
