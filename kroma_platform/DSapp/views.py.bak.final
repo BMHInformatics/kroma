@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import json
 import time
@@ -35,13 +36,13 @@ CLINICIAN_INSTRUCTION = (
     "clinical language (e.g., seizure semiology, comorbidities, pharmacologic options, prognosis, "
     "and clinical trial evidence). "
     "You have access to a Dravet Syndrome knowledge graph (KG) provided as N-Triples. Use the KG to "
-    "contextualize and ground your answers, but do not quote individual triples in your main answer. "
+    "contextualize and ground your answers, but you do not need to quote individual triples. "
     "You are also a general LLM and may use your broader medical and scientific training knowledge; "
     "treat KG-grounded statements as higher priority when available, and clearly label statements that "
     "are based on general knowledge when the KG is silent. "
     "When the KG does not address the question, answer from general clinical knowledge without commenting on KG availability. "
-    "IMPORTANT: In your main answer (i.e., the first portion of your response, which is the [[ANSWER]] portion),"
-    "do NOT mention the knowledge graph at all, and do NOT say 'the KG does/does not contain...' or similar. "
+    "IMPORTANT: In your main answer, do NOT mention the knowledge graph at all. "
+    "Do NOT say 'the KG does/does not contain...' or similar. "
     "If the KG is missing information, still answer using general medical knowledge, and simply state uncertainty if needed. "
     "Only discuss KG support/gaps in a separate [[KG_SUMMARY]] section. "
     "Only provide general educational information, not personalized medical advice, diagnosis, or "
@@ -49,29 +50,17 @@ CLINICIAN_INSTRUCTION = (
     "describe general principles, typical options, and supporting evidence, and remind the user to "
     "consult guidelines and the patient’s treating clinicians for decisions. Be concise but precise."
 
-    "CRITICAL RULES:\n"
-    "1) Always provide your output in the 3-portions format explained below."
-    "2) Always answer the user’s question directly first.\n"
-    "3) In the first portion of your response (the [[ANSWER]] portion), do NOT show or reference any raw KG identifiers,"
-    "URIs, URLs, angle-bracket tokens, or strings like 'http://', 'https://', 'example.org', '<...>', 'KG-grounded:',"
-    "'subject/predicate/object', or 'triple(s)'.\n"
-    "4) Always provide the raw N-Triples from the KG that you used to answer the user's question, in the third portion"
-    "(i.e., the [[RAW_TRIPLES]] portion) of your output."
-    "4) Never imply you can only use the KG. Use both KG + pretrained knowledge; if something is not in the KG, "
-    "you may still answer from general knowledge, but label it as 'general knowledge' with uncertainty.\n"
-    "5) Do not fabricate citations or trial identifiers.\n\n"
-
     "OUTPUT FORMAT (INTERNAL — DO NOT EXPOSE TO USER):\n"
     "Use the seperator `---***---\n` to dilineate sections.\n"
     "[[ANSWER]]\n"
     "- Main response text goes here.\n\n"
     "- Provide a direct clinical answer first. Do NOT mention the knowledge graph. Do NOT include triples.\n\n"
     "---***---\n"
-    "[[KG_SUMMARY]]\n"
+    "[[KG_SUMMARY]] (ONLY IF REQUESTED)\n"
     "- Plain-language KG grounding summary.\n\n"
     "- Provide 3–6 bullets summarizing which KG relationships supported the answer and where KG coverage is thin.\n\n"
     "---***---\n"
-    "[[RAW_TRIPLES]]\n"
+    "[[RAW_TRIPLES]] (ONLY IF REQUESTED)\n"
     "- Output raw N-Triples as plain lines only (no bullets, no numbering, no extra text), one triple per line.\n"
     "- Show at most 10 relevant N-Triples.\n"
 )
@@ -102,14 +91,11 @@ SCIENTIST_INSTRUCTION = (
     "evidence when it speaks clearly; otherwise, supplement from general knowledge.\n\n"
 
     "CRITICAL RULES:\n"
-    "1) Always provide your output in the 3-portions format explained below."
-    "2) Always answer the user’s question directly first.\n"
-    "3) In the first portion of your response (the [[ANSWER]] portion), do NOT show or reference any raw KG identifiers,"
-    "URIs, URLs, angle-bracket tokens, or strings like 'http://', 'https://', 'example.org', '<...>', 'KG-grounded:',"
-    "'subject/predicate/object', or 'triple(s)'.\n"
-    "4) Always provide the raw N-Triples from the KG that you used to answer the user's question, in the third portion"
-    "(i.e., the [[RAW_TRIPLES]] portion) of your output."
-    "4) Never imply you can only use the KG. Use both KG + pretrained knowledge; if something is not in the KG, "
+    "1) Always answer the user’s question directly first.\n"
+    "2) In Tier 1 and Tier 2, do NOT show or reference any raw KG identifiers, URIs, URLs, angle-bracket tokens, "
+    "or strings like 'http://', 'https://', 'example.org', '<...>', 'KG-grounded:', 'subject/predicate/object', or 'triple(s)'.\n"
+    "3) Never include triple syntax anywhere except Tier 3.\n"
+    "4) Never imply you can ONLY use the KG. Use both KG + pretrained knowledge; if something is not in the KG, "
     "you may still answer from general knowledge, but label it as 'general knowledge' with uncertainty.\n"
     "5) Do not fabricate citations or trial identifiers.\n\n"
 
@@ -119,11 +105,11 @@ SCIENTIST_INSTRUCTION = (
     "- Main response text goes here.\n\n"
     "- Provide a direct clinical answer first. Do NOT mention the knowledge graph. Do NOT include triples.\n\n"
     "---***---\n"
-    "[[KG_SUMMARY]]\n"
+    "[[KG_SUMMARY]] (ONLY IF REQUESTED)\n"
     "- Plain-language KG grounding summary.\n\n"
     "- Provide 3–6 bullets summarizing which KG relationships supported the answer and where KG coverage is thin.\n\n"
     "---***---\n"
-    "[[RAW_TRIPLES]]\n"
+    "[[RAW_TRIPLES]] (ONLY IF REQUESTED)\n"
     "- Output raw N-Triples as plain lines only (no bullets, no numbering, no extra text), one triple per line.\n"
     "- Show at most 10 relevant N-Triples.\n"
 )
@@ -368,54 +354,32 @@ def kg_chat_api(request):
             ),
         )
 
-        text = getattr(response, "text", "").strip()
-        sections = _split_kroma_sections(text)
-        if not sections["answer"]:
-            # fallback: last-resort extraction
-            sections["answer"] = text.split("[[", 1)[0].strip()
-            
-        response = sections["answer"]
-        kg_summary = sections["kg_summary"]
-        used_triples = sections["raw_triples"]
-        response = _sanitize_tier1(response)
-        response = _finalize_output_for_user(response)
-
-        used_triples = "\n".join(
-            line for line in used_triples.splitlines()
-            if line.strip().startswith("<")
-        )
+        full_text = getattr(response, "text", "").strip()
+        
+        # 1) Extract user-facing answer ONLY
+        user_answer = _extract_answer(full_text)
+        
+        # 2) Extract raw triples ONLY (hidden from user)
+        raw_triples = _extract_raw_triples(full_text)
+        
+        # 3) Resolve references from triples (or fake_list)
+        references = _get_references(raw_triples)
 
         #TODO: Put kg_summary into popup box
 
         # Get references based on used_triples
         # TODO: Do we want triples from any other sections too?
-        references = _get_references(used_triples)
 
-        # Resolve PMCIDs to article metadata
-        articles = (
-            Article.objects.using("dsai")
-            .filter(pmcid__in=references)
-            .values("pmcid", "title", "url")
-        )
 
-        reference_payload = [
-            {
-                "pmcid": a["pmcid"],
-                "title": a["title"],
-                "url": a["url"],
-            }
-            for a in articles
-        ]
-
-        log.response = text
+        log.response = full_text
         log.was_success = True
         log.error_message = ""
         log.save(using=db, update_fields=["response", "was_success", "error_message"])
 
         # TODO: Add reference section to response & have kg summary show up with seperate button
         return JsonResponse({
-            "response": response,
-            "references": reference_payload
+            "response": user_answer,
+            "references": list(references),
         })
 
     except Exception as e:
@@ -533,24 +497,18 @@ def _sanitize_tier1(text: str) -> str:
 
 def _finalize_output_for_user(text: str) -> str:
     """
-    Returns ONLY the user-facing answer.
-    Hides KG summary and raw triples from the UI,
-    but they remain stored in ChatLog.response.
+    Return ONLY the [[ANSWER]] section to the UI.
     """
     if not text:
-        return text
+        return ""
 
-    # Keep only content before the first section separator
+    if "[[ANSWER]]" in text:
+        text = text.split("[[ANSWER]]", 1)[1]
+
     if "---***---" in text:
         text = text.split("---***---", 1)[0]
 
-    # Remove internal answer marker
-    text = text.replace("[[ANSWER]]", "").strip()
-
-    # Final cleanup
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    return text
+    return text.strip()
 
 def _get_references(text: str) -> str:
 
@@ -596,47 +554,33 @@ def _get_references(text: str) -> str:
 
     if not pmcids:
         # TODO: Handle what happens if none of our triples have an available reference
-        fake_list = {"2745418", "3547637", "4010885"}
+        fake_list = set(["2745418", "3547637", "4010885"])
         return fake_list
     return sorted(pmcids)
 
-def _split_kroma_sections(text: str):
+
+def _extract_answer(full_text: str) -> str:
     """
-    Robustly split KroMA output into ANSWER, KG_SUMMARY, RAW_TRIPLES
-    even if markers have whitespace or formatting noise.
+    Returns ONLY the [[ANSWER]] section for the UI.
     """
-    sections = {
-        "answer": "",
-        "kg_summary": "",
-        "raw_triples": "",
-    }
+    if not full_text or "[[ANSWER]]" not in full_text:
+        return full_text.strip()
 
-    if not text:
-        return sections
+    answer = full_text.split("[[ANSWER]]", 1)[1]
 
-    def extract(start_pattern, end_pattern=None):
-        start = re.search(start_pattern, text, re.IGNORECASE)
-        if not start:
-            return ""
-        s = text[start.end():]
-        if end_pattern:
-            end = re.search(end_pattern, s, re.IGNORECASE)
-            if end:
-                s = s[:end.start()]
-        return s.strip()
+    if "---***---" in answer:
+        answer = answer.split("---***---", 1)[0]
 
-    sections["answer"] = extract(
-        r"\[\[\s*ANSWER\s*\]\]",
-        r"\[\[\s*KG_SUMMARY\s*\]\]"
-    )
+    return answer.strip()
 
-    sections["kg_summary"] = extract(
-        r"\[\[\s*KG_SUMMARY\s*\]\]",
-        r"\[\[\s*RAW_TRIPLES\s*\]\]"
-    )
 
-    sections["raw_triples"] = extract(
-        r"\[\[\s*RAW_TRIPLES\s*\]\]"
-    )
+def _extract_raw_triples(full_text: str) -> str:
+    """
+    Returns ONLY the [[RAW_TRIPLES]] section for internal use.
+    """
+    if not full_text or "[[RAW_TRIPLES]]" not in full_text:
+        return ""
 
-    return sections
+    triples = full_text.split("[[RAW_TRIPLES]]", 1)[1]
+
+    return triples.strip()
