@@ -147,12 +147,12 @@ KG_FILE_REF = None
 
 def ensure_kg_nt_file():
     """
-    RDF:  media/kg/dravetkg.rdf
-    NT:   media/kg/dravetkg.txt
+    RDF:  media/dravetkg.rdf
+    NT:   media/dravetkg.txt
     """
     media_root = Path(settings.MEDIA_ROOT)
-    rdf_path = media_root / "kg" / "dravetkg.rdf"
-    nt_path = media_root / "kg" / "dravetkg.txt"
+    rdf_path = media_root / "dravetkg_01.22.2026.rdf"
+    nt_path = media_root / "dravetkg_01.22.2026.txt"
 
     if not rdf_path.exists():
         raise FileNotFoundError(f"RDF KG file not found at {rdf_path}")
@@ -395,14 +395,26 @@ def kg_chat_api(request):
         articles = (
             Article.objects.using("dsai")
             .filter(pmcid__in=references)
-            .values("pmcid", "title", "url")
+            .values(
+                "pmcid",
+                "pmid",
+                "title",
+                "url",
+                "first_author",
+                "journal",
+                "year",
+            )
         )
 
         reference_payload = [
             {
                 "pmcid": a["pmcid"],
+                "pmid": a["pmid"],
                 "title": a["title"],
                 "url": a["url"],
+                "first_author": a["first_author"],
+                "journal": a["journal"],
+                "year": a["year"],
             }
             for a in articles
         ]
@@ -557,8 +569,8 @@ def _get_references(text: str) -> str:
     # Load CSV
     # TODO: Replace with DB lookups
     media_root = Path(settings.MEDIA_ROOT)
-    csv_path = media_root/"triples_article_01.13.2026.csv"
-    df = pd.read_csv(csv_path, dtype=str)
+    csv_path = media_root/"triples_article_01.22.2026.csv"
+    df = pd.read_csv(csv_path, dtype=str, encoding="latin-1")
     
     # Normalize for matching (# TODO: Should already by normalized to lowercase in DB)
     df["Subject"] = df["Subject"].str.lower()
@@ -596,8 +608,9 @@ def _get_references(text: str) -> str:
 
     if not pmcids:
         # TODO: Handle what happens if none of our triples have an available reference
-        fake_list = {"2745418", "3547637", "4010885"}
-        return fake_list
+        # fake_list = {"2745418", "3547637", "4010885"}
+        # return fake_list
+        return "References are being updated. Please check back soon."
     return sorted(pmcids)
 
 def _split_kroma_sections(text: str):

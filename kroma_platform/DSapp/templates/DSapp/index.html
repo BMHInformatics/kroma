@@ -906,7 +906,7 @@ function renderReferences(refs) {
     });
 
 function appendReferences(bubble, refs) {
-    if (!refs || refs.length === 0) return;
+    if (!refs) return;
 
     const container = document.createElement("div");
     container.className = "kroma-references";
@@ -916,36 +916,87 @@ function appendReferences(bubble, refs) {
 
     const toggle = document.createElement("button");
     toggle.className = "btn btn-link btn-sm p-0";
-    {#toggle.textContent = `📚 References (${refs.length})`;#}
-    toggle.textContent = `📚 References`;
 
-    {#const list = document.createElement("ul");#}
-    {#list.className = "list-unstyled mt-1 mb-0 d-none";#}
-    const message = document.createElement("div");
-    message.className = "small text-muted mt-1 d-none";
-    message.textContent =
-        "References are being updated. Please check back soon.";
+    if (typeof refs === "string") {
+        toggle.textContent = "📚 References";
 
-    {#toggle.onclick = () => list.classList.toggle("d-none");#}
-    toggle.onclick = () => message.classList.toggle("d-none");
+        const message = document.createElement("div");
+        message.className = "small text-muted mt-1 d-none";
+        message.textContent = refs;
 
-    {#refs.forEach(r => {#}
-    {#    const li = document.createElement("li");#}
-    {#    li.style.fontSize = "0.82rem";#}
-    {##}
-    {#    const a = document.createElement("a");#}
-    {#    a.href = r.url;#}
-    {#    a.target = "_blank";#}
-    {#    a.rel = "noopener";#}
-    {#    a.textContent = r.title;#}
-    {##}
-    {#    li.appendChild(a);#}
-    {#    list.appendChild(li);#}
-    {#});#}
+        toggle.onclick = () => message.classList.toggle("d-none");
+
+        container.appendChild(toggle);
+        container.appendChild(message);
+        bubble.appendChild(container);
+        return;
+    }
+
+    if (!Array.isArray(refs) || refs.length === 0) return;
+
+    toggle.textContent = `📚 References (${refs.length})`;
+
+    const list = document.createElement("ul");
+    list.className = "mt-1 mb-0 d-none";
+    list.style.paddingLeft = "1.2rem";
+
+    toggle.onclick = () => list.classList.toggle("d-none");
+
+    refs.forEach(r => {
+        const li = document.createElement("li");
+        li.style.fontSize = "0.82rem";
+
+        const firstAuthor = r.first_author || "Unknown author";
+        const journal = r.journal || "Unknown journal";
+        const year = r.year || "n.d.";
+
+        // --- Citation text ---
+        const citationText = document.createElement("span");
+        citationText.innerHTML =
+            `${firstAuthor}, et al. ${r.title}. <em>${journal}</em>. ${year}. `;
+
+        li.appendChild(citationText);
+
+        if (r.pmcid && Number(r.pmcid) > 1) {
+            // PMCID label
+            const label = document.createElement("span");
+            label.textContent = "PMCID: ";
+
+            // PMCID ID
+            const idLink = document.createElement("a");
+            idLink.href = `https://pmc.ncbi.nlm.nih.gov/articles/PMC${r.pmcid}/`;
+            idLink.target = "_blank";
+            idLink.rel = "noopener";
+            idLink.textContent = `PMC${r.pmcid}`;
+            idLink.style.fontWeight = "600";
+            idLink.style.fontSize = "0.8rem";
+
+            li.appendChild(label);
+            li.appendChild(idLink);
+
+        } else if (r.pmid) {
+            // PMID label
+            const label = document.createElement("span");
+            label.textContent = "PMID: ";
+
+            // PMID ID
+            const idLink = document.createElement("a");
+            idLink.href = `https://pubmed.ncbi.nlm.nih.gov/${r.pmid}/`;
+            idLink.target = "_blank";
+            idLink.rel = "noopener";
+            idLink.textContent = r.pmid;
+            idLink.style.fontWeight = "600";
+            idLink.style.fontSize = "0.8rem";
+
+            li.appendChild(label);
+            li.appendChild(idLink);
+        }
+
+        list.appendChild(li);
+    });
 
     container.appendChild(toggle);
-    {#container.appendChild(list);#}
-    container.appendChild(message);
+    container.appendChild(list);
     bubble.appendChild(container);
 }
 
