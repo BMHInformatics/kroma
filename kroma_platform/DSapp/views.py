@@ -151,8 +151,8 @@ def ensure_kg_nt_file():
     NT:   media/dravetkg.txt
     """
     media_root = Path(settings.MEDIA_ROOT)
-    rdf_path = media_root / "dravetkg_02.05.2026.rdf"
-    nt_path = media_root / "dravetkg_02.05.2026.txt"
+    rdf_path = media_root / "dravetkg_02.13.2026.rdf"
+    nt_path = media_root / "dravetkg_02.13.2026.txt"
 
     if not rdf_path.exists():
         raise FileNotFoundError(f"RDF KG file not found at {rdf_path}")
@@ -569,7 +569,7 @@ def _get_references(text: str) -> str:
     # Load CSV
     # TODO: Replace with DB lookups
     media_root = Path(settings.MEDIA_ROOT)
-    csv_path = media_root/"triples_article_02.05.2026.csv"
+    csv_path = media_root/"triples_article_02.13.2026.csv"
     df = pd.read_csv(csv_path, dtype=str, encoding="latin-1")
     
     # Normalize for matching (# TODO: Should already by normalized to lowercase in DB)
