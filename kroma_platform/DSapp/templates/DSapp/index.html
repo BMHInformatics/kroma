@@ -80,22 +80,45 @@
     </button>
 </div>
 
-<div class="rounded-box akb-container">
+<div class="rounded-box akb-container mb-3">
     <div class="mb-2">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Article Knowledge Base</h5>
-            <button class="btn btn-link btn-sm p-0" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#akb-help"
-                    aria-expanded="false" aria-controls="akb-help"
-                    style="text-decoration:none;">
-                ℹ How to use
-            </button>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+{#                {% if request.user.username == "appadmin1" or request.user.username == "appadmin2" %}#}
+                {% if request.user.username == "appadmin" %}
+                    <a href="{% url 'DSapp:pmc_sync' %}"
+                       target="_blank"
+                       class="btn btn-outline-secondary btn-sm">
+                        🔄 PMC Sync
+                    </a>
+
+{#                    <a href="{% url 'DSapp:download_kg' %}"#}
+{#                       class="btn btn-outline-primary btn-sm">#}
+{#                        ⬇ Download latest KG#}
+{#                    </a>#}
+                {% endif %}
+
+                <button class="btn btn-link btn-sm p-0" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#akb-help"
+                        aria-expanded="false" aria-controls="akb-help"
+                        style="text-decoration:none; font-size: 1.2rem;">
+                    ℹ How to use
+                </button>
+            </div>
+        </div>
         </div>
 
         <div class="text-muted small mt-1">
             Articles retrieved from PubMed Central using the terms <em>Dravet Syndrome</em> and
             <em>Severe Myoclonic Epilepsy of Infancy</em>. Some articles may mention Dravet Syndrome
             without being primarily focused on it.
+        </div>
+
+        <div class="alert alert-warning akb-development-note small mb-0 mt-2 py-2 px-3">
+            <strong>Annotation update in progress:</strong> Organism-level and clinical-axis annotations are currently being curated.
+            These filters and summary charts are shown as planned features but are temporarily disabled.
         </div>
 
         <div id="akb-help" class="collapse mt-2">
@@ -107,7 +130,7 @@
                 <ul class="mb-2">
                     <li><strong>Not all articles are Dravet-focused.</strong> Some papers include Dravet Syndrome as part of a broader epilepsy cohort.</li>
                     <li>To view articles that specifically study Dravet Syndrome, select <strong>“Yes”</strong> in the <strong>DS-related</strong> filter on the left.</li>
-                    <li>Article classification and annotation are still in progress. Some metadata may be incomplete.</li>
+                    <li>Article classification and annotation are still in progress. Organism and clinical-axis filters/charts are temporarily disabled until curation is complete.</li>
                 </ul>
                 <p class="mb-1"><strong>Recommended workflow:</strong></p>
                 <ol class="mb-0">
@@ -157,16 +180,17 @@
                     </select>
                 </div>
 
-                <div class="inner-box mb-2">
+                <div class="inner-box mb-2 akb-disabled-feature">
                     <div class="section-header">
-                        <h6>Organism</h6>
-                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetOrganism()">Reset</button>
+                        <h6>Organism <span class="akb-coming-soon-badge">Coming soon</span></h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetOrganism()" disabled>Reset</button>
                     </div>
-                    <select name="organism" class="form-select form-select-sm" multiple size="5">
+                    <select name="organism" class="form-select form-select-sm" multiple size="5" disabled aria-disabled="true">
                         {% for org in organism_choices %}
                             <option value="{{ org }}" {% if org in organism_filter %}selected{% endif %}>{{ org }}</option>
                         {% endfor %}
                     </select>
+                    <div class="akb-disabled-message">Organism annotations are being curated and will be enabled in a future update.</div>
                 </div>
 
                 <div class="inner-box mb-2">
@@ -181,16 +205,17 @@
                     </select>
                 </div>
 
-                <div class="inner-box mb-2">
+                <div class="inner-box mb-2 akb-disabled-feature">
                     <div class="section-header">
-                        <h6>Axis</h6>
-                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetAxes()">Reset</button>
+                        <h6>Axis <span class="akb-coming-soon-badge">Coming soon</span></h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetAxes()" disabled>Reset</button>
                     </div>
-                    <select name="axis" class="form-select form-select-sm" multiple size="9">
+                    <select name="axis" class="form-select form-select-sm" multiple size="9" disabled aria-disabled="true">
                         {% for a in axis_choices %}
                             <option value="{{ a }}" {% if a in axis_filter %}selected{% endif %}>{{ a }}</option>
                         {% endfor %}
                     </select>
+                    <div class="akb-disabled-message">Clinical-axis annotations are being finalized and will be enabled in a future update.</div>
                 </div>
 
                 <div class="inner-box mb-2">
@@ -198,7 +223,7 @@
                         <h6>Search title/abstract</h6>
                         <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetSearch()">Reset</button>
                     </div>
-                    <input type="text" name="q" class="form-control form-control-sm" placeholder="e.g. SCN1A, zebrafish" value="{{ search_query }}">
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="e.g. SCN1A, fenfluramine" value="{{ search_query }}">
                 </div>
 
                 <div class="inner-box">
@@ -208,7 +233,15 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm apply-btn">Apply filters</button>
                     <div class="alert alert-info articles-count-badge mb-0 mt-2 py-1 px-2">
-                        <strong>{{ total_count }}</strong> articles match current filters.
+                        <div><strong>{{ total_count }}</strong> articles match current filters.</div>
+                        <div class="small mt-1">
+                            <strong>Last KG update:</strong>
+                            {% if kg_last_updated %}
+                                {{ kg_last_updated }}
+                            {% else %}
+                                Not available yet
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </form>
@@ -302,17 +335,25 @@
                 </div>
                 <canvas id="typeChart"></canvas>
             </div>
-            <div class="inner-box chart-container">
+            <div class="inner-box chart-container akb-chart-coming-soon">
                 <div class="section-header">
-                    <h6>Axes</h6>
+                    <h6>Axes <span class="akb-coming-soon-badge">Coming soon</span></h6>
                 </div>
-                <canvas id="axisChart"></canvas>
+                <canvas id="axisChart" aria-hidden="true"></canvas>
+                <div class="akb-chart-overlay">
+                    <div class="akb-chart-overlay-title">Axis annotation summary</div>
+                    <div class="akb-chart-overlay-text">Chart will be updated after clinical-axis curation is complete.</div>
+                </div>
             </div>
-            <div class="inner-box chart-container">
+            <div class="inner-box chart-container akb-chart-coming-soon">
                 <div class="section-header">
-                    <h6>Organism</h6>
+                    <h6>Organism <span class="akb-coming-soon-badge">Coming soon</span></h6>
                 </div>
-                <canvas id="organismChart"></canvas>
+                <canvas id="organismChart" aria-hidden="true"></canvas>
+                <div class="akb-chart-overlay">
+                    <div class="akb-chart-overlay-title">Organism annotation summary</div>
+                    <div class="akb-chart-overlay-text">Chart will be updated after organism-level curation is complete.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -400,6 +441,85 @@
         background: #eef5ff;
         box-shadow: 0 0 0 1px rgba(13,110,253,0.15);
     }
+
+    .akb-development-note {
+        border-color: #ffe69c;
+        background-color: #fff8e1;
+        color: #664d03;
+    }
+
+    .akb-disabled-feature {
+        position: relative;
+        background: #f8f9fa;
+        border-color: #dee2e6;
+        opacity: 0.78;
+    }
+
+    .akb-disabled-feature select,
+    .akb-disabled-feature button {
+        cursor: not-allowed;
+    }
+
+    .akb-coming-soon-badge {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #e9ecef;
+        color: #6c757d;
+        border: 1px solid #ced4da;
+        font-size: 0.65rem;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+
+    .akb-disabled-message {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: #6c757d;
+        line-height: 1.25;
+    }
+
+    .akb-chart-coming-soon {
+        position: relative;
+        min-height: 220px;
+        background: #f8f9fa;
+        border-color: #dee2e6;
+        overflow: hidden;
+    }
+
+    .akb-chart-coming-soon canvas {
+        opacity: 0.12;
+        filter: grayscale(1);
+        pointer-events: none;
+    }
+
+    .akb-chart-overlay {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: 52%;
+        transform: translateY(-50%);
+        padding: 14px 12px;
+        text-align: center;
+        border: 1px dashed #adb5bd;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.92);
+        color: #6c757d;
+        pointer-events: none;
+    }
+
+    .akb-chart-overlay-title {
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 4px;
+    }
+
+    .akb-chart-overlay-text {
+        font-size: 0.8rem;
+        line-height: 1.25;
+    }
+
 </style>
 
 {% endblock %}

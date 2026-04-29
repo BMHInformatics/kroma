@@ -18,7 +18,9 @@ class Article(models.Model):
     pdf_path = models.TextField()
     axis = models.CharField(max_length=100)
     abstract = models.TextField(max_length=100)
-
+    fulltext_path = models.TextField(blank=True, default="")
+    fulltext_format = models.CharField(max_length=10, blank=True, default="")
+    
     class Meta:
         db_table = 'article'
         managed = False

@@ -9,7 +9,7 @@ import pandas as pd
 from django.conf import settings
 
 
-KG_CSV_FILENAME = "kg_triples_unique.csv"
+KG_CSV_FILENAME = "kg_triples.csv"
 REFERENCE_CSV_FILENAME = "kg_triples_references.csv"
 
 NODES_FILENAME = "kg_nodes.tsv"
@@ -46,7 +46,7 @@ def build_compact_kg_files(force_rebuild: bool = False) -> Dict[str, Path]:
       kg_refs.tsv        placeholder file retained for compatibility
 
     Source CSV:
-      kg_triples_unique.csv
+      kg_triples.csv
       Columns: Subject, Predicate, Object
     """
     paths = _paths()

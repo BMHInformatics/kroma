@@ -2,7 +2,11 @@ import os
 import json
 import re
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
+import zipfile
+from io import BytesIO
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib import messages
@@ -11,7 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.db import models
 from django.db.models import Count
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
@@ -31,6 +35,7 @@ from DSapp.kg_compact import (
     resolve_compact_triples_to_labels,
 )
 from DSapp.models import AccessRequest, Article, ChatLog
+
 
 
 User = get_user_model()
@@ -139,14 +144,33 @@ KG_CACHED_CONTENT_NAME = None
 KG_CACHED_CONTENT_MODEL = None
 KG_SOURCE_SIGNATURE = None
 KG_CACHED_SYSTEM_INSTRUCTION = None
+KROMA_GEMINI_CACHE_RECORD_FILENAME = "dravet_kg_cache_records.json"
 
-
-def get_kg_cached_content_name(model_name: str, system_instruction: str) -> str:
+def get_kg_cached_content_name(model_name: str, system_instruction: str, role: str = "clinician") -> str:
     global KG_CACHED_CONTENT_NAME, KG_CACHED_CONTENT_MODEL, KG_SOURCE_SIGNATURE, KG_CACHED_SYSTEM_INSTRUCTION
 
     if not gemini_client:
         raise RuntimeError("Gemini client is not configured (missing API key).")
 
+    role = (role or "clinician").lower()
+
+    # First try to use the daily prebuilt cache created at 8 AM Eastern.
+    daily_cache_record = _load_daily_gemini_cache_record()
+    role_record = daily_cache_record.get("roles", {}).get(role)
+
+    if role_record:
+        daily_cache_name = role_record.get("cache_name")
+        daily_cache_model = role_record.get("model_name")
+
+        if daily_cache_name and daily_cache_model == model_name:
+            try:
+                gemini_client.caches.get(name=daily_cache_name)
+                return daily_cache_name
+            except Exception:
+                # Fall through to lazy cache creation.
+                pass
+
+    # Fallback: create cache lazily if the 8 AM scheduled task has not run yet.
     compact_files = build_compact_kg_files()
     current_signature = get_compact_kg_signature()
 
@@ -190,6 +214,71 @@ def get_kg_cached_content_name(model_name: str, system_instruction: str) -> str:
 
     return KG_CACHED_CONTENT_NAME
 
+
+# KG_DOWNLOAD_FILENAMES = [
+#     "kg_triples.csv",
+#     "kg_triples_references.csv",
+#     "kg_nodes.tsv",
+#     "kg_predicates.tsv",
+#     "kg_edges.tsv",
+#     "kg_refs.tsv",
+#     "kg_triples_rejected.csv",
+# ]
+#
+# def _existing_kg_paths():
+#     media_root = Path(settings.MEDIA_ROOT)
+#     return [media_root / name for name in KG_DOWNLOAD_FILENAMES if (media_root / name).exists()]
+
+KG_DOWNLOAD_FILENAME = "kg_triples.csv"
+
+def _existing_kg_paths():
+    kg_path = Path(settings.MEDIA_ROOT) / KG_DOWNLOAD_FILENAME
+    return [kg_path] if kg_path.exists() else []
+
+def _get_kg_last_updated_display() -> str:
+    paths = _existing_kg_paths()
+    if not paths:
+        return ""
+
+    latest_mtime = max(path.stat().st_mtime for path in paths)
+
+    eastern = ZoneInfo("America/New_York")
+    dt = datetime.fromtimestamp(latest_mtime, tz=eastern)
+
+    return dt.strftime("%Y-%m-%d %I:%M %p %Z")
+
+
+# @login_required
+# def download_kg(request):
+#     paths = _existing_kg_paths()
+#     if not paths:
+#         return HttpResponse("No KG files are available for download yet.", status=404)
+#
+#     buffer = BytesIO()
+#     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+#         for path in paths:
+#             zf.write(path, arcname=path.name)
+#
+#     buffer.seek(0)
+#     filename = f"kroma_kg_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
+#     response = HttpResponse(buffer.getvalue(), content_type="application/zip")
+#     response["Content-Disposition"] = f'attachment; filename="{filename}"'
+#     return response
+
+@login_required
+def download_kg(request):
+    kg_path = Path(settings.MEDIA_ROOT) / KG_DOWNLOAD_FILENAME
+
+    if not kg_path.exists():
+        return HttpResponse("KG file is not available for download yet.", status=404)
+
+    filename = f"kroma_kg_triples_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+    with kg_path.open("rb") as f:
+        response = HttpResponse(f.read(), content_type="text/csv")
+
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 @login_required
 def index(request):
@@ -244,11 +333,50 @@ def index(request):
 
     total = qs.count()
 
-    type_counts_qs = qs.values("type").annotate(count=Count("pmcid")).order_by("type")
-    type_labels = [item["type"] for item in type_counts_qs]
-    type_values = [item["count"] for item in type_counts_qs]
-    type_percentages = [round(100 * c / total, 1) for c in type_values] if total else [0] * len(type_values)
+    # type_counts_qs = qs.values("type").annotate(count=Count("pmcid")).order_by("type")
+    # type_labels = [item["type"] for item in type_counts_qs]
+    # type_values = [item["count"] for item in type_counts_qs]
+    # type_percentages = [round(100 * c / total, 1) for c in type_values] if total else [0] * len(type_values)
 
+    type_counts_raw = qs.values("type").annotate(count=Count("pmcid")).order_by("type")
+
+    type_grouped = {}
+
+    for item in type_counts_raw:
+        raw_type = (item["type"] or "").strip()
+        count = item["count"]
+
+        raw_type_lower = raw_type.lower()
+
+        # Do not show null/blank article types in the pie chart
+        if not raw_type_lower or raw_type_lower in ["null", "none", "unknown"]:
+            continue
+
+        # Merge case/case report/case series into one group
+        if raw_type_lower in ["case", "case report", "case reports", "case series"]:
+            label = "Case report"
+        else:
+            # Clean display label
+            label = raw_type.title()
+
+            # Optional nicer formatting
+            if raw_type_lower == "non-english":
+                label = "Non-English"
+            elif raw_type_lower == "original":
+                label = "Original"
+            elif raw_type_lower == "review":
+                label = "Review"
+
+        type_grouped[label] = type_grouped.get(label, 0) + count
+
+    type_labels = list(type_grouped.keys())
+    type_values = list(type_grouped.values())
+
+    type_total = sum(type_values)
+    type_percentages = [
+        round(100 * c / type_total, 1) for c in type_values
+    ] if type_total else [0] * len(type_values)
+    
     axis_counts_qs = qs.values("axis").annotate(count=Count("pmcid")).order_by("axis")
     axis_labels = [item["axis"] for item in axis_counts_qs]
     axis_values = [item["count"] for item in axis_counts_qs]
@@ -291,6 +419,7 @@ def index(request):
         "org_percentages_json": json.dumps(org_percentages),
         "MEDIA_URL": settings.MEDIA_URL,
         "KROMA_FEEDBACK_URL": getattr(settings, "KROMA_FEEDBACK_URL", ""),
+        "kg_last_updated": _get_kg_last_updated_display(),
     }
 
     return render(request, "DSapp/index.html", context)
@@ -544,8 +673,12 @@ def kg_chat_api(request):
         )
 
         system_instruction = get_system_instruction_for_role(role)
-        cached_content_name = get_kg_cached_content_name(model_name, system_instruction)
-
+        cached_content_name = get_kg_cached_content_name(
+            model_name=model_name,
+            system_instruction=system_instruction,
+            role=role,
+        )
+        
         response = gemini_client.models.generate_content(
             model=model_name,
             contents=[f"User question: {user_message}"],
@@ -649,3 +782,16 @@ def request_access(request):
         return redirect("DSapp:login")
 
     return redirect("DSapp:login")
+
+
+def _load_daily_gemini_cache_record():
+    cache_record_path = Path(settings.MEDIA_ROOT) / KROMA_GEMINI_CACHE_RECORD_FILENAME
+
+    if not cache_record_path.exists():
+        return {}
+
+    try:
+        data = json.loads(cache_record_path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}

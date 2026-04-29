@@ -13,6 +13,13 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 from django.urls import reverse_lazy
 import environ
+from celery.schedules import crontab
+
+TIME_ZONE = "America/New_York"
+USE_TZ = True
+
+CELERY_TIMEZONE = "America/New_York"
+CELERY_ENABLE_UTC = False
 
 env = environ.Env()
 environ.Env.read_env()
@@ -246,3 +253,41 @@ EMAIL_HOST_USER = env("KROMA_EMAIL_USER")
 EMAIL_HOST_PASSWORD = env("KROMA_EMAIL_PASSWORD")
 
 KROMA_FEEDBACK_URL = env("KROMA_FEEDBACK_URL", default="")
+
+
+# CELERY_BEAT_SCHEDULE = {
+#     "refresh-gemini-kg-cache-every-45-minutes": {
+#         "task": "DSapp.tasks.refresh_gemini_kg_cache",
+#         "schedule": 45 * 60,
+#     },
+#     "daily-pmc-sync": {
+#         "task": "DSapp.tasks.daily_article_search",
+#         "schedule": crontab(hour=2, minute=0),
+#     },
+#     "automatic-kroma-triple-extraction": {
+#         "task": "DSapp.tasks.automatic_kroma_triple_extraction",
+#         "schedule": crontab(hour=3, minute=0),
+#         "kwargs": {"limit": 20},
+#     },
+#
+# }
+
+CELERY_BEAT_SCHEDULE = {
+    # 1) Query PMC every day at midnight Eastern.
+    "daily-pmc-sync-midnight-eastern": {
+        "task": "DSapp.tasks.daily_pmc_sync_midnight",
+        "schedule": crontab(hour=0, minute=0),
+    },
+
+    # 2) Every 30 minutes, extract triples from ONE newly downloaded eligible article.
+    "incremental-kroma-triple-extraction-every-30-minutes": {
+        "task": "DSapp.tasks.extract_next_queued_kroma_article",
+        "schedule": crontab(minute="*/30"),
+    },
+
+    # 3) Clear and recreate Gemini KG cache every day at 8 AM Eastern.
+    "reset-gemini-kg-cache-every-day-8am-eastern": {
+        "task": "DSapp.tasks.reset_gemini_kg_cache_daily",
+        "schedule": crontab(hour=8, minute=0),
+    },
+}
