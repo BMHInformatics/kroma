@@ -5,6 +5,7 @@ from django.contrib.auth import views as auth_views
 from DSapp import views
 from DSapp import pmc_sync_views
 from DSapp import kg_extraction_views
+from DSapp import admin_dashboard_views
 
 app_name = 'DSapp'
 
@@ -22,6 +23,8 @@ urlpatterns = [
     path('pmc-sync/', pmc_sync_views.pmc_sync_view, name='pmc_sync'),
     path('kg-extract/', kg_extraction_views.kg_extract_view, name='kg_extract'),
     path('download-kg/', views.download_kg, name='download_kg'),
+    path('dashboard/', admin_dashboard_views.admin_dashboard_view, name='admin_dashboard'),
+
 ]
 
 if settings.DEBUG:

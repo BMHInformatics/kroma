@@ -45,6 +45,12 @@
         <div class="ms-auto d-flex flex-column align-items-center gap-2">
 
           <span class="user-badge">{{ user.username }}</span>
+                {% if request.user.username == "appadmin" or request.user.username == "appadmin1" or request.user.username == "appadmin2" or request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'DSapp:admin_dashboard' %}"
+                       class="btn btn-sm btn-outline-light" target="_blank">
+                        ⚙ Dashboard
+                    </a>
+                {% endif %}
 
           <form method="post" action="{% url 'kroma:logout' %}" class="mb-0">
               {% csrf_token %}

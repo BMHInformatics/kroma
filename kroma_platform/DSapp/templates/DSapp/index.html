@@ -33,11 +33,18 @@
             </div>
         </div>
 
-        <div>
+        <div style="display:flex; gap:6px; align-items:center;">
             <button id="chatbot-copy"
                     style="background:white; border:1px solid #ddd; border-radius:4px;
                            font-size:0.8rem; padding:2px 6px; margin-top:2px; cursor:pointer;">
-                Copy
+                Copy chat
+            </button>
+
+            <button id="chatbot-clear"
+                    type="button"
+                    style="background:white; border:1px solid #ddd; border-radius:4px;
+                           font-size:0.8rem; padding:2px 6px; margin-top:2px; cursor:pointer;">
+                Clear chat
             </button>
         </div>
     </div>
@@ -86,20 +93,6 @@
             <h5 class="mb-0">Article Knowledge Base</h5>
 
             <div class="d-flex align-items-center gap-2 flex-wrap">
-{#                {% if request.user.username == "appadmin1" or request.user.username == "appadmin2" %}#}
-                {% if request.user.username == "appadmin" %}
-                    <a href="{% url 'DSapp:pmc_sync' %}"
-                       target="_blank"
-                       class="btn btn-outline-secondary btn-sm">
-                        🔄 PMC Sync
-                    </a>
-
-{#                    <a href="{% url 'DSapp:download_kg' %}"#}
-{#                       class="btn btn-outline-primary btn-sm">#}
-{#                        ⬇ Download latest KG#}
-{#                    </a>#}
-                {% endif %}
-
                 <button class="btn btn-link btn-sm p-0" type="button"
                         data-bs-toggle="collapse" data-bs-target="#akb-help"
                         aria-expanded="false" aria-controls="akb-help"
@@ -718,18 +711,32 @@
                         onclick="this.nextElementSibling.classList.toggle('d-none')">
                     📚 References (${refs.length}) ▼
                 </button>
-                <ul class="list-unstyled d-none mt-2 mb-0 ms-2">
+                <ul class="d-none mt-2 mb-0 ms-3">
         `;
 
-        refs.forEach(r => {
-            html += `
-                <li style="font-size:0.82rem; margin-bottom:4px;">
-                    <a href="${r.url}" target="_blank" rel="noopener">
-                        ${escapeHtml(r.first_author || "Unknown author")}. ${escapeHtml(r.title || "Untitled")} (${escapeHtml(String(r.year || ""))})
-                    </a>
-                </li>
-            `;
-        });
+refs.forEach(r => {
+    const authorText = r.first_author
+        ? `${r.first_author}${r.has_multiple_authors ? " et al" : ""}. `
+        : "";
+
+    const titleText = r.title || "Untitled";
+
+    const pmcidNumber = r.pmcid
+        ? String(r.pmcid).replace(/^PMC/i, "")
+        : "";
+
+    const pmcUrl = r.pmc_url
+        || (pmcidNumber ? `https://pmc.ncbi.nlm.nih.gov/articles/PMC${pmcidNumber}/` : "#");
+
+    html += `
+        <li style="font-size:0.82rem; margin-bottom:6px;">
+            ${escapeHtml(authorText)}${escapeHtml(titleText)}
+            ${pmcidNumber
+                ? `(PMCID: <a href="${pmcUrl}" target="_blank" rel="noopener">${escapeHtml(pmcidNumber)}</a>)`
+                : ""}
+        </li>
+    `;
+});
 
         html += `</ul></div>`;
         return html;
@@ -756,12 +763,93 @@
     document.addEventListener("DOMContentLoaded", function() {
         const sendBtn = document.getElementById("chatbot-send");
         const copyBtn = document.getElementById("chatbot-copy");
+        const clearBtn = document.getElementById("chatbot-clear");
         const input = document.getElementById("chatbot-input");
         const responseBox = document.getElementById("chatbot-response");
         const statusBox = document.getElementById("chatbot-status");
 
         if (!sendBtn || !input || !responseBox || !statusBox) return;
+        const KROMA_CHAT_STORAGE_KEY = "kroma_chat_history_v1";
+        const KROMA_CHAT_INPUT_KEY = "kroma_chat_input_v1";
+        const KROMA_CHAT_ROLE_KEY = "kroma_chat_role_v1";
 
+        function saveChatState() {
+            if (!responseBox) return;
+
+            sessionStorage.setItem(KROMA_CHAT_STORAGE_KEY, responseBox.innerHTML);
+            sessionStorage.setItem(KROMA_CHAT_INPUT_KEY, input ? input.value : "");
+
+            const selectedRole = document.querySelector('input[name="chatbot-role"]:checked');
+            if (selectedRole) {
+                sessionStorage.setItem(KROMA_CHAT_ROLE_KEY, selectedRole.value);
+            }
+        }
+
+        function restoreChatState() {
+            const savedChat = sessionStorage.getItem(KROMA_CHAT_STORAGE_KEY);
+            const savedInput = sessionStorage.getItem(KROMA_CHAT_INPUT_KEY);
+            const savedRole = sessionStorage.getItem(KROMA_CHAT_ROLE_KEY);
+
+            if (savedChat) {
+                responseBox.innerHTML = savedChat;
+                responseBox.scrollTop = responseBox.scrollHeight;
+            }
+
+            if (savedInput && input) {
+                input.value = savedInput;
+            }
+
+            if (savedRole) {
+                const roleRadio = document.querySelector(`input[name="chatbot-role"][value="${savedRole}"]`);
+                if (roleRadio) {
+                    roleRadio.checked = true;
+                }
+            }
+        }
+
+        function getDefaultChatHtml() {
+            return `
+                <div class="chat-msg bot" style="display:flex; justify-content:flex-start;">
+                    <div class="bubble p-2"
+                         style="background:#e9ecef; border-radius:8px; max-width:85%;">
+                        <div class="main-answer">
+                            <p class="mb-0">Ask me anything about Dravet Syndrome. I will use the Dravet Syndrome knowledge graph to help answer your question.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function clearChatState() {
+            sessionStorage.removeItem(KROMA_CHAT_STORAGE_KEY);
+            sessionStorage.removeItem(KROMA_CHAT_INPUT_KEY);
+            sessionStorage.removeItem(KROMA_CHAT_ROLE_KEY);
+
+            if (responseBox) {
+                responseBox.innerHTML = getDefaultChatHtml();
+                responseBox.scrollTop = 0;
+            }
+
+            if (input) {
+                input.value = "";
+            }
+        }
+
+        restoreChatState();
+
+        window.addEventListener("beforeunload", saveChatState);
+
+        document.querySelectorAll("#filter-form, #article-select-form").forEach(form => {
+            form.addEventListener("submit", saveChatState);
+        });
+
+        document.querySelectorAll('input[name="chatbot-role"]').forEach(radio => {
+            radio.addEventListener("change", saveChatState);
+        });
+
+        if (input) {
+            input.addEventListener("input", saveChatState);
+        }
         function getSelectedRole() {
             const selected = document.querySelector('input[name="chatbot-role"]:checked');
             return selected ? selected.value : "clinician";
@@ -797,6 +885,7 @@
             wrapper.appendChild(bubble);
             responseBox.appendChild(wrapper);
             responseBox.scrollTop = responseBox.scrollHeight;
+            saveChatState();
         }
 
         function sendMessage() {
@@ -820,7 +909,22 @@
                 headers: { "X-CSRFToken": csrfToken },
                 body: formData
             })
-            .then(res => res.json())
+            .then(async res => {
+                const text = await res.text();
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`Server returned non-JSON response. HTTP ${res.status}: ${text.slice(0, 500)}`);
+                }
+
+                if (!res.ok) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
+
+                return data;
+            })
             .then(data => {
                 setThinkingState(false);
 
@@ -840,10 +944,14 @@
                 }
 
                 appendMessage("bot", botHtml);
+                saveChatState();
             })
             .catch(err => {
                 setThinkingState(false);
-                appendMessage("bot", `<span style="color:red;">Connection error. Please check your network and try again.</span>`);
+                appendMessage(
+                    "bot",
+                    `<span style="color:red;">Error: ${escapeHtml(err.message || "Request failed.")}</span>`
+                );
                 console.error(err);
             });
         }
@@ -864,6 +972,9 @@
                 setTimeout(() => { copyBtn.innerText = "Copy"; }, 2000);
             });
         });
+        if (clearBtn) {
+            clearBtn.addEventListener("click", clearChatState);
+        }
     });
 </script>
 {% endblock %}

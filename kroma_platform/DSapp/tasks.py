@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 from typing import Any
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -17,6 +18,12 @@ from DSapp.triple_extraction_pipeline import (
 )
 from DSapp.kg_compact import build_compact_kg_files
 from DSapp.views import get_system_instruction_for_role
+from DSapp.pipeline_control import (
+    load_pipeline_control,
+    is_pmc_sync_enabled,
+    is_triple_extraction_enabled,
+    is_kg_cache_reset_enabled,
+)
 
 
 KROMA_TRIPLE_QUEUE_FILENAME = "kroma_triple_extraction_queue.json"
@@ -192,11 +199,19 @@ def _save_cache_records(records: dict[str, Any]) -> None:
 @shared_task
 def daily_pmc_sync_midnight():
     """
-    Runs every day at midnight Eastern.
+    Scheduled PMC sync.
 
-    It queries PMC, downloads XML/PDF when available, saves metadata into dsai.article,
+    The dashboard can pause this task without code changes. When enabled, it
+    queries PMC, downloads XML/PDF when available, saves metadata into dsai.article,
     classifies articles, and queues newly downloaded eligible articles for triple extraction.
     """
+    control = load_pipeline_control()
+    if not is_pmc_sync_enabled():
+        return {
+            "status": "paused",
+            "message": "Automated PMC sync is paused from the KroMA admin dashboard.",
+        }
+
     today = timezone.localdate()
     yesterday = today - timezone.timedelta(days=1)
 
@@ -204,7 +219,7 @@ def daily_pmc_sync_midnight():
         term=DEFAULT_SEARCH_TERM,
         mindate=yesterday.strftime("%Y/%m/%d"),
         maxdate=today.strftime("%Y/%m/%d"),
-        retmax=200,
+        retmax=int(control.get("pmc_sync_retmax", 200)),
         db_alias="dsai",
         overwrite_existing=False,
         download_pdf=True,
@@ -223,7 +238,9 @@ def daily_pmc_sync_midnight():
         if item.get("ds") != "Yes":
             continue
 
-        if not item.get("has_xml"):
+        # Accept either usable full-text XML or PDF. The extraction pipeline can
+        # fall back to PDF when XML is unavailable.
+        if not (item.get("has_xml") or item.get("has_pdf")):
             continue
 
         pmcid = item.get("pmcid")
@@ -242,11 +259,19 @@ def daily_pmc_sync_midnight():
 @shared_task
 def extract_next_queued_kroma_article():
     """
-    Runs every 30 minutes.
+    Scheduled queued KG extraction.
 
-    It pops ONE PMCID from the queue and sends only that article to Gemini
-    for triple extraction and KG update.
+    The dashboard can pause this task without code changes. When enabled, it
+    pops queued PMCIDs and sends them to Gemini for triple extraction, validation,
+    and KG CSV update.
     """
+    control = load_pipeline_control()
+    if not is_triple_extraction_enabled():
+        return {
+            "status": "paused",
+            "message": "Automated KG extraction is paused from the KroMA admin dashboard.",
+        }
+
     queue = _load_triple_queue()
 
     if not queue:
@@ -255,17 +280,19 @@ def extract_next_queued_kroma_article():
             "message": "No queued articles are waiting for triple extraction.",
         }
 
-    pmcid = queue.pop(0)
+    limit = max(1, int(control.get("triple_extraction_limit_per_run", 1)))
+    pmcids_to_process = queue[:limit]
+    queue = queue[limit:]
     _save_triple_queue(queue)
 
     result = extract_triples_for_eligible_articles(
         db_alias="dsai",
-        pmcids=[pmcid],
+        pmcids=pmcids_to_process,
         overwrite_existing_refs=False,
     )
 
     return {
-        "processed_pmcid": pmcid,
+        "processed_pmcids": pmcids_to_process,
         "remaining_queue_size": len(queue),
         "result": result,
     }
@@ -274,12 +301,19 @@ def extract_next_queued_kroma_article():
 @shared_task
 def reset_gemini_kg_cache_daily():
     """
-    Runs every day at 8 AM Eastern.
+    Scheduled Gemini KG cache reset/rebuild.
 
-    Deletes prior Gemini KG caches if possible, rebuilds compact KG files,
-    uploads the latest KG files to Gemini cache, and stores cache names
-    with a 24-hour TTL.
+    The dashboard can pause this task without code changes. When enabled, it
+    deletes prior Gemini KG caches if possible, rebuilds compact KG files,
+    uploads the latest KG files to Gemini cache, and stores cache names with a
+    24-hour TTL.
     """
+    if not is_kg_cache_reset_enabled():
+        return {
+            "status": "paused",
+            "message": "Automated Gemini KG cache reset is paused from the KroMA admin dashboard.",
+        }
+
     api_key = os.getenv("GOOGLE_API_KEY", "").strip()
     if not api_key:
         return {"status": "error", "message": "GOOGLE_API_KEY is not configured."}
@@ -339,6 +373,7 @@ def reset_gemini_kg_cache_daily():
         created_roles[role] = {
             "cache_name": cached_content.name,
             "model_name": KROMA_CACHE_MODEL_NAME,
+            "system_instruction_hash": hashlib.sha256(system_instruction.encode("utf-8")).hexdigest(),
             "created_at": timezone.now().isoformat(),
             "ttl_seconds": KROMA_CACHE_TTL_SECONDS,
         }
