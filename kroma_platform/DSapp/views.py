@@ -15,6 +15,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
+from django.db import connections
 from django.db import models
 from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
@@ -278,6 +279,17 @@ def download_kg(request):
 @login_required
 def index(request):
     qs = Article.objects.using("dsai").all()
+    with connections["dsai"].cursor() as cursor:
+        table_columns = {
+            col.name for col in connections["dsai"].introspection.get_table_description(cursor, Article._meta.db_table)
+        }
+    available_fields = [
+        field.name
+        for field in Article._meta.concrete_fields
+        if getattr(field, "column", field.name) in table_columns
+    ]
+    if available_fields:
+        qs = qs.only(*available_fields)
 
     date_filter = request.GET.get("date_filter", "all")
     start_date = request.GET.get("start_date", "")
@@ -325,6 +337,8 @@ def index(request):
         selected_ids = request.POST.getlist("selected_articles")
         if selected_ids:
             selected_articles = Article.objects.using("dsai").filter(pmcid__in=selected_ids)
+            if available_fields:
+                selected_articles = selected_articles.only(*available_fields)
 
     total = qs.count()
 

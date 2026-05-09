@@ -23,7 +23,7 @@ class Article(models.Model):
     
     class Meta:
         db_table = 'article'
-        managed = False
+        managed = True
         
 
 class AccessRequest(models.Model):
