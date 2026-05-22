@@ -1,14 +1,11 @@
 {
-  "created_at": "2026-05-09T01:44:31.175357+00:00",
-  "model_name": "gemini-3.1-pro-preview",
-  "ttl_seconds": 86400,
-  "roles": {
-    "clinician": {
+  "status": "empty",
+  "deleted_at": "2026-05-22T01:55:18.322118+00:00",
+  "deleted_cache_names": [],
+  "delete_errors": [
+    {
       "cache_name": "cachedContents/gru8m6kchdq6fb148le4175czbwtteg9gplu6rpx",
-      "model_name": "gemini-3.1-pro-preview",
-      "created_at": "2026-05-09T01:44:31.175357+00:00",
-      "ttl_seconds": 86400,
-      "system_instruction_hash": "2e0bdc490964ceb6a1b11e61914d66edb39bf0b7c6a0420980c6d0dd85979dd6"
+      "error": "ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'CachedContent not found (or permission denied)', 'status': 'PERMISSION_DENIED'}}"
     }
-  }
+  ]
 }

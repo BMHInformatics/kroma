@@ -19,7 +19,12 @@ from DSapp.pipeline_control import (
     maybe_update_celery_beat_schedule,
     save_pipeline_control,
 )
-from DSapp.tasks import KROMA_GEMINI_CACHE_RECORD_FILENAME, KROMA_TRIPLE_QUEUE_FILENAME
+from DSapp.tasks import (
+    KROMA_GEMINI_CACHE_RECORD_FILENAME,
+    KROMA_TRIPLE_QUEUE_FILENAME,
+    delete_gemini_kg_cache,
+    warm_gemini_kg_cache,
+)
 from DSapp.triple_extraction_pipeline import extract_triples_manual, parse_pmcid_input
 from DSapp.views import _get_kg_last_updated_display
 
@@ -65,8 +70,11 @@ def _control_initial(control: dict) -> dict:
         "automated_triple_extraction_enabled": bool(control.get("automated_triple_extraction_enabled")),
         "triple_extraction_every_minutes": control.get("triple_extraction_every_minutes", 30),
         "triple_extraction_limit_per_run": control.get("triple_extraction_limit_per_run", 1),
+        "kg_cache_enabled": bool(control.get("kg_cache_enabled", True)),
+        "kg_cache_mode": control.get("kg_cache_mode", "on_demand"),
+        "kg_cache_ttl_minutes": control.get("kg_cache_ttl_minutes", 30),
+        "kg_cache_scheduled_time": control.get("kg_cache_scheduled_time", control.get("kg_cache_reset_time", "08:00")),
         "automated_kg_cache_reset_enabled": bool(control.get("automated_kg_cache_reset_enabled")),
-        "kg_cache_reset_time": control.get("kg_cache_reset_time", "08:00"),
         "timezone": control.get("timezone", "America/New_York"),
     }
 
@@ -79,6 +87,7 @@ def admin_dashboard_view(request):
     control = load_pipeline_control()
     pmc_result = None
     kg_result = None
+    cache_action_result = None
 
     if request.method == "POST":
         action = request.POST.get("action", "")
@@ -98,24 +107,30 @@ def admin_dashboard_view(request):
                         "automated_triple_extraction_enabled": cleaned["automated_triple_extraction_enabled"],
                         "triple_extraction_every_minutes": cleaned["triple_extraction_every_minutes"],
                         "triple_extraction_limit_per_run": cleaned["triple_extraction_limit_per_run"],
+                        "kg_cache_enabled": cleaned["kg_cache_enabled"],
+                        "kg_cache_mode": cleaned["kg_cache_mode"],
+                        "kg_cache_ttl_minutes": cleaned["kg_cache_ttl_minutes"],
+                        "kg_cache_scheduled_time": cleaned["kg_cache_scheduled_time"].strftime("%H:%M"),
+                        "kg_cache_reset_time": cleaned["kg_cache_scheduled_time"].strftime("%H:%M"),
                         "automated_kg_cache_reset_enabled": cleaned["automated_kg_cache_reset_enabled"],
-                        "kg_cache_reset_time": cleaned["kg_cache_reset_time"].strftime("%H:%M"),
                         "timezone": cleaned["timezone"],
                     },
                     username=request.user.username,
                 )
                 beat_ok, beat_msg = maybe_update_celery_beat_schedule(updated)
                 if beat_ok:
-                    messages.success(request, "Pipeline controls saved. " + beat_msg)
+                    messages.success(request, "Pipeline and KG cache controls saved. " + beat_msg)
                 else:
                     messages.warning(
                         request,
-                        "Pipeline controls saved. Pause/resume switches are active, but timer updates were not pushed to Celery Beat. "
+                        "Pipeline and KG cache controls saved. Pause/resume switches are active, but timer updates were not pushed to Celery Beat. "
                         + beat_msg,
                     )
                 return redirect("DSapp:admin_dashboard")
 
-        elif action in {"toggle_pmc_sync", "toggle_triple_extraction", "toggle_kg_cache_reset"}:
+            messages.error(request, "Please correct the highlighted pipeline/cache control settings.")
+
+        elif action in {"toggle_pmc_sync", "toggle_triple_extraction", "toggle_kg_cache"}:
             toggle_map = {
                 "toggle_pmc_sync": (
                     "automated_pmc_sync_enabled",
@@ -125,9 +140,9 @@ def admin_dashboard_view(request):
                     "automated_triple_extraction_enabled",
                     "automated KG extraction/validation/KG CSV update",
                 ),
-                "toggle_kg_cache_reset": (
-                    "automated_kg_cache_reset_enabled",
-                    "automated Gemini KG cache reset/rebuild",
+                "toggle_kg_cache": (
+                    "kg_cache_enabled",
+                    "Gemini KG cache for KroMA chat",
                 ),
             }
             key, label = toggle_map[action]
@@ -144,6 +159,33 @@ def admin_dashboard_view(request):
                     request,
                     f"{label} is now {new_state} through task-level guards. " + beat_msg,
                 )
+            return redirect("DSapp:admin_dashboard")
+
+        elif action == "warm_kg_cache":
+            try:
+                cache_action_result = warm_gemini_kg_cache(force_rebuild=True, delete_existing=True)
+                if cache_action_result.get("status") == "success":
+                    ttl = cache_action_result.get("ttl_seconds")
+                    messages.success(request, f"Gemini KG cache warmed successfully (shared KG-only cache, TTL {ttl} seconds).")
+                elif cache_action_result.get("status") == "disabled":
+                    messages.warning(request, cache_action_result.get("message", "Gemini KG cache is disabled."))
+                else:
+                    messages.error(request, f"Gemini KG cache warm failed: {cache_action_result}")
+            except Exception as exc:  # noqa: BLE001
+                messages.error(request, f"Gemini KG cache warm failed: {type(exc).__name__}: {exc}")
+            return redirect("DSapp:admin_dashboard")
+
+        elif action == "delete_kg_cache":
+            try:
+                cache_action_result = delete_gemini_kg_cache()
+                if cache_action_result.get("status") in {"success", "partial_success"}:
+                    deleted = len(cache_action_result.get("deleted_cache_names", []))
+                    errors = len(cache_action_result.get("delete_errors", []))
+                    messages.success(request, f"Gemini KG cache delete completed. Deleted={deleted}, errors={errors}.")
+                else:
+                    messages.error(request, f"Gemini KG cache delete failed: {cache_action_result}")
+            except Exception as exc:  # noqa: BLE001
+                messages.error(request, f"Gemini KG cache delete failed: {type(exc).__name__}: {exc}")
             return redirect("DSapp:admin_dashboard")
 
         elif action == "run_pmc_sync":
@@ -232,6 +274,7 @@ def admin_dashboard_view(request):
         "kg_form": kg_form,
         "pmc_result": pmc_result,
         "kg_result": kg_result,
+        "cache_action_result": cache_action_result,
         "queue_size": _get_queue_size(),
         "cache_summary": _get_cache_summary(),
         "kg_last_updated": _get_kg_last_updated_display(),

@@ -2,7 +2,6 @@ import os
 import json
 import hashlib
 import re
-import uuid
 import time
 from datetime import datetime, timedelta
 import zipfile
@@ -41,6 +40,7 @@ from DSapp.kg_compact import (
     extract_query_reference_terms,
 )
 from DSapp.models import AccessRequest, Article, ChatLog
+from DSapp.pipeline_control import load_pipeline_control, kg_cache_ttl_seconds, is_kg_cache_available_for_chat
 
 
 
@@ -65,7 +65,7 @@ COMMON_OUTPUT_RULES = (
     "Do not mention knowledge graphs, triples, compact files, TSV files, node IDs, predicate IDs, cache files, or implementation details in the user-facing answer. "
     "Do not fabricate citations, PMCID values, trial identifiers, or source details. "
     "Do not provide personalized medical advice, diagnosis, or treatment instructions for a specific patient. "
-    "After the user-facing answer, you may append an internal block beginning with [[RAW_TRIPLES]] and list compact KG edge rows that clearly support the answer. "
+    "After the user-facing answer, you SHOULD append an internal block beginning with [[RAW_TRIPLES]] and list compact KG edge rows that clearly support the answer. "
     "This block is hidden from users and is used only for article-link recovery. "
     "Use compact edge format only, such as n123 | p17 | n456, one edge per line. "
     "Prioritize edges involving the specific intervention, gene, mechanism, phenotype, or outcome named in the user's question. "
@@ -109,58 +109,33 @@ def get_system_instruction_for_role(role: str) -> str:
 # Process-local cache metadata for Gemini cached content.
 KG_CACHED_CONTENT_NAME = None
 KG_CACHED_CONTENT_MODEL = None
-KG_SOURCE_SIGNATURE = None
-KG_CACHED_SYSTEM_INSTRUCTION = None
+KG_SOURCE_SIGNATURE_HASH = None
 KROMA_GEMINI_CACHE_RECORD_FILENAME = "dravet_kg_cache_records.json"
 
-def get_kg_cached_content_name(model_name: str, system_instruction: str, role: str = "clinician") -> str:
-    global KG_CACHED_CONTENT_NAME, KG_CACHED_CONTENT_MODEL, KG_SOURCE_SIGNATURE, KG_CACHED_SYSTEM_INSTRUCTION
 
-    if not gemini_client:
-        raise RuntimeError("Gemini client is not configured (missing API key).")
+def _kg_signature_hash() -> str:
+    signature = get_compact_kg_signature()
+    return hashlib.sha256(repr(signature).encode("utf-8")).hexdigest()
 
-    role = (role or "clinician").lower()
 
-    # First try to use the daily prebuilt cache created at 8 AM Eastern.
-    daily_cache_record = _load_daily_gemini_cache_record()
-    role_record = daily_cache_record.get("roles", {}).get(role)
+def _cache_record_is_current(record: dict, model_name: str, signature_hash: str) -> bool:
+    return bool(
+        isinstance(record, dict)
+        and record.get("status", "active") == "active"
+        and record.get("model_name") == model_name
+        and record.get("kg_signature_hash") == signature_hash
+        and record.get("cache_name")
+    )
 
-    if role_record:
-        daily_cache_name = role_record.get("cache_name")
-        daily_cache_model = role_record.get("model_name")
-        daily_system_hash = role_record.get("system_instruction_hash")
-        current_system_hash = hashlib.sha256(system_instruction.encode("utf-8")).hexdigest()
 
-        # Avoid reusing stale daily caches built with older, more restrictive prompts.
-        # If old cache records do not include system_instruction_hash, skip them and
-        # create a fresh lazy cache with the current instruction.
-        if (
-            daily_cache_name
-            and daily_cache_model == model_name
-            and daily_system_hash == current_system_hash
-        ):
-            try:
-                gemini_client.caches.get(name=daily_cache_name)
-                return daily_cache_name
-            except Exception:
-                # Fall through to lazy cache creation.
-                pass
-
-    # Fallback: create cache lazily if the 8 AM scheduled task has not run yet.
+def _create_gemini_kg_cache(
+    model_name: str,
+    ttl_seconds: int,
+    system_instruction: str | None = None,
+    display_prefix: str = "dravet-kg-shared",
+) -> str:
+    """Upload compact KG files and create one Gemini cache."""
     compact_files = build_compact_kg_files()
-    current_signature = get_compact_kg_signature()
-
-    if (
-        KG_CACHED_CONTENT_NAME
-        and KG_CACHED_CONTENT_MODEL == model_name
-        and KG_CACHED_SYSTEM_INSTRUCTION == system_instruction
-        and KG_SOURCE_SIGNATURE == current_signature
-    ):
-        try:
-            gemini_client.caches.get(name=KG_CACHED_CONTENT_NAME)
-            return KG_CACHED_CONTENT_NAME
-        except Exception:
-            KG_CACHED_CONTENT_NAME = None
 
     uploaded_files = []
     for path in compact_files.values():
@@ -173,42 +148,101 @@ def get_kg_cached_content_name(model_name: str, system_instruction: str, role: s
         )
         uploaded_files.append(uploaded)
 
+    config_kwargs = {
+        "display_name": f"{display_prefix}-{timezone.now().strftime('%Y%m%d-%H%M%S')}",
+        "ttl": f"{ttl_seconds}s",
+        "contents": uploaded_files,
+    }
+    if system_instruction:
+        config_kwargs["system_instruction"] = system_instruction
+
     cached_content = gemini_client.caches.create(
         model=model_name,
-        config=CreateCachedContentConfig(
-            display_name=f"dravet-kg-compact-cache-{uuid.uuid4().hex[:8]}",
-            ttl="86400s",
-            contents=uploaded_files,
-            system_instruction=system_instruction,
-        ),
+        config=CreateCachedContentConfig(**config_kwargs),
+    )
+    return cached_content.name
+
+
+def get_kg_cached_content_name(model_name: str, system_instruction: str, role: str = "clinician") -> str:
+    """
+    Return a Gemini cached-content name for KroMA chat.
+
+    KroMA uses one shared KG-only cache for all user roles. The role-specific
+    clinician/patient/scientist instruction is passed at generate_content time,
+    not embedded in cached content. Switching role therefore reuses the same KG
+    cache and does not upload the KG again.
+    """
+    global KG_CACHED_CONTENT_NAME, KG_CACHED_CONTENT_MODEL, KG_SOURCE_SIGNATURE_HASH
+
+    if not gemini_client:
+        raise RuntimeError("Gemini client is not configured (missing API key).")
+
+    control = load_pipeline_control()
+    if not is_kg_cache_available_for_chat():
+        raise RuntimeError("Gemini KG cache is disabled from the KroMA admin dashboard.")
+
+    mode = control.get("kg_cache_mode", "on_demand")
+    ttl_seconds = kg_cache_ttl_seconds(control)
+
+    build_compact_kg_files()
+    signature_hash = _kg_signature_hash()
+    record = _load_daily_gemini_cache_record()
+
+    record_cache_name = record.get("cache_name") if _cache_record_is_current(record, model_name, signature_hash) else None
+    if record_cache_name:
+        try:
+            gemini_client.caches.get(name=record_cache_name)
+            KG_CACHED_CONTENT_NAME = record_cache_name
+            KG_CACHED_CONTENT_MODEL = model_name
+            KG_SOURCE_SIGNATURE_HASH = signature_hash
+            return record_cache_name
+        except Exception:
+            # The local record is stale or the Gemini cache expired. Fall through
+            # and create a new cache only if the dashboard mode allows it.
+            pass
+
+    if (
+        KG_CACHED_CONTENT_NAME
+        and KG_CACHED_CONTENT_MODEL == model_name
+        and KG_SOURCE_SIGNATURE_HASH == signature_hash
+    ):
+        try:
+            gemini_client.caches.get(name=KG_CACHED_CONTENT_NAME)
+            return KG_CACHED_CONTENT_NAME
+        except Exception:
+            KG_CACHED_CONTENT_NAME = None
+
+    if mode == "manual":
+        raise RuntimeError(
+            "No active Gemini KG cache was found. The dashboard is set to manual cache mode; "
+            "warm the cache from the admin dashboard before using KroMA chat."
+        )
+
+    cache_name = _create_gemini_kg_cache(
+        model_name=model_name,
+        ttl_seconds=ttl_seconds,
+        system_instruction=None,
+        display_prefix="dravet-kg-shared",
     )
 
-    KG_CACHED_CONTENT_NAME = cached_content.name
+    KG_CACHED_CONTENT_NAME = cache_name
     KG_CACHED_CONTENT_MODEL = model_name
-    KG_SOURCE_SIGNATURE = current_signature
-    KG_CACHED_SYSTEM_INSTRUCTION = system_instruction
+    KG_SOURCE_SIGNATURE_HASH = signature_hash
 
-    # Persist lazy-created cache so other workers/processes can reuse it.
-    # Include the system-instruction hash because cache records without this hash
-    # are treated as stale by the cache lookup code above.
-    current_system_hash = hashlib.sha256(system_instruction.encode("utf-8")).hexdigest()
-    existing = _load_daily_gemini_cache_record()
-    roles = existing.get("roles", {}) if isinstance(existing, dict) else {}
-    roles[role] = {
-        "cache_name": cached_content.name,
-        "model_name": model_name,
-        "created_at": timezone.now().isoformat(),
-        "ttl_seconds": 86400,
-        "system_instruction_hash": current_system_hash,
-    }
+    created_at = timezone.now()
     _save_daily_gemini_cache_record({
-        "created_at": timezone.now().isoformat(),
+        "status": "active",
+        "cache_name": cache_name,
         "model_name": model_name,
-        "ttl_seconds": 86400,
-        "roles": roles,
+        "created_at": created_at.isoformat(),
+        "expires_at": (created_at + timedelta(seconds=ttl_seconds)).isoformat(),
+        "ttl_seconds": ttl_seconds,
+        "ttl_minutes": int(ttl_seconds / 60),
+        "cache_contents": "shared KG-only compact TSV files",
+        "role_instructions_cached": False,
+        "kg_signature_hash": signature_hash,
     })
-
-    return KG_CACHED_CONTENT_NAME
+    return cache_name
 
 
 # KG_DOWNLOAD_FILENAMES = [
@@ -429,6 +463,7 @@ def index(request):
         "MEDIA_URL": settings.MEDIA_URL,
         "KROMA_FEEDBACK_URL": getattr(settings, "KROMA_FEEDBACK_URL", ""),
         "kg_last_updated": _get_kg_last_updated_display(),
+        "kg_cache_ttl_minutes": load_pipeline_control().get("kg_cache_ttl_minutes", 30),
     }
 
     return render(request, "DSapp/index.html", context)
@@ -1073,7 +1108,7 @@ def kg_chat_api(request):
             return JsonResponse({"error": "Gemini API key missing"}, status=500)
 
         role = request.POST.get("role", "clinician")
-        model_name = "gemini-3.1-pro-preview"
+        model_name = "gemini-3-flash-preview"
         db = "dsai"
 
         user_in_dsai, _ = User.objects.using(db).update_or_create(
@@ -1120,6 +1155,7 @@ def kg_chat_api(request):
             ],
             config=GenerateContentConfig(
                 cached_content=cached_content_name,
+                system_instruction=system_instruction,
             ),
         )
         t_gemini = time.perf_counter()
