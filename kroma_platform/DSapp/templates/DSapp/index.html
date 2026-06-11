@@ -1,0 +1,985 @@
+{% extends "DSapp/base.html" %}
+
+{% block content %}
+
+<div class="rounded-box mb-3">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; flex-direction:column; flex:1;">
+            <h5 class="mb-0">KroMA</h5>
+                <div style="font-size:0.9rem; margin-top:4px; color:#495057; font-weight:600;">
+                    <span style="font-size:1.2rem; vertical-align:middle; margin-right:4px; color: #0d6efd">▶</span>
+                    Please choose your user type before asking a question:
+                </div>
+
+            <div id="chatbot-role-group"
+                 style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+                <label class="chat-role-option"
+                       style="display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #d6d6d6; border-radius:8px; background:#fff; cursor:pointer; font-size:0.85rem;">
+                    <input type="radio" name="chatbot-role" value="clinician" checked>
+                    <span>Clinician / Researcher</span>
+                </label>
+
+                <label class="chat-role-option"
+                       style="display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #d6d6d6; border-radius:8px; background:#fff; cursor:pointer; font-size:0.85rem;">
+                    <input type="radio" name="chatbot-role" value="patient">
+                    <span>Patient / Family / Caregiver</span>
+                </label>
+
+                <label class="chat-role-option"
+                       style="display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #d6d6d6; border-radius:8px; background:#fff; cursor:pointer; font-size:0.85rem;">
+                    <input type="radio" name="chatbot-role" value="scientist">
+                    <span>Basic Scientist</span>
+                </label>
+            </div>
+
+            <div class="kroma-cache-note"
+                 style="font-size:0.78rem; color:#d2365b; margin-top:6px; line-height:1.3;">
+                The first question may take a little longer while KroMA prepares its knowledge context. After the cached context expires ({{ kg_cache_ttl_minutes|default:30 }} minutes), the next question may take a little longer again.
+            </div>
+        </div>
+
+        <div style="display:flex; gap:6px; align-items:center;">
+            <button id="chatbot-copy"
+                    style="background:white; border:1px solid #ddd; border-radius:4px;
+                           font-size:0.8rem; padding:2px 6px; margin-top:2px; cursor:pointer;">
+                Copy chat
+            </button>
+
+            <button id="chatbot-clear"
+                    type="button"
+                    style="background:white; border:1px solid #ddd; border-radius:4px;
+                           font-size:0.8rem; padding:2px 6px; margin-top:2px; cursor:pointer;">
+                Clear chat
+            </button>
+        </div>
+    </div>
+
+    <div id="chatbot-response"
+         style="margin-top:12px; padding:12px; height:300px;
+                overflow-y:auto; border:1px solid #ddd;
+                border-radius:8px; background:#fafafa;
+                font-size:0.92rem; display:flex; flex-direction:column; gap:10px;">
+        <div class="chat-msg bot" style="display:flex; justify-content:flex-start;">
+            <div class="bubble p-2"
+                 style="background:#e9ecef; border-radius:8px; max-width:85%;">
+                <div class="main-answer">
+                    <p class="mb-0">Ask me anything about Dravet Syndrome. I will use the Dravet Syndrome knowledge graph to help answer your question.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chatbot-status"
+         class="chatbot-status mt-2 mb-0"
+         style="display:none; font-size:0.88rem; color:#666; align-items:center; gap:8px;">
+        <span style="display:inline-flex; align-items:center; gap:6px;">
+            <span style="width:8px; height:8px; border-radius:50%; background:#0d6efd; display:inline-block; animation:kromaPulse 1.2s infinite;"></span>
+            <span>KroMA is thinking<span class="thinking-dots"></span></span>
+        </span>
+    </div>
+
+    <form id="chat-csrf-form">{% csrf_token %}</form>
+
+    <textarea id="chatbot-input"
+              placeholder="Type your question... (Press Enter to send)"
+              style="width:100%; height:80px; margin-top:8px;
+                     resize:none; padding:8px; border-radius:6px; border:1px solid #ccc;"></textarea>
+
+    <button id="chatbot-send"
+            style="margin-top:8px; width:100%;"
+            class="btn btn-primary btn-sm">
+        Ask KroMA
+    </button>
+</div>
+
+<div class="rounded-box akb-container mb-3">
+    <div class="mb-2">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0">Article Knowledge Base</h5>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button class="btn btn-link btn-sm p-0" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#akb-help"
+                        aria-expanded="false" aria-controls="akb-help"
+                        style="text-decoration:none; font-size: 1.2rem;">
+                    ℹ How to use
+                </button>
+            </div>
+        </div>
+        </div>
+
+        <div class="text-muted small mt-1">
+            Articles retrieved from PubMed Central using the terms <em>Dravet Syndrome</em> and
+            <em>Severe Myoclonic Epilepsy of Infancy</em>. Some articles may mention Dravet Syndrome
+            without being primarily focused on it.
+        </div>
+
+        <div class="alert alert-warning akb-development-note small mb-0 mt-2 py-2 px-3">
+            <strong>Annotation update in progress:</strong> Organism-level and clinical-axis annotations are currently being curated.
+            These filters and summary charts are shown as planned features but are temporarily disabled.
+        </div>
+
+        <div id="akb-help" class="collapse mt-2">
+            <div class="alert alert-secondary small mb-0">
+                <p class="mb-2">
+                    This section allows you to explore and filter articles retrieved from PubMed Central that mention
+                    Dravet Syndrome or Severe Myoclonic Epilepsy of Infancy.
+                </p>
+                <ul class="mb-2">
+                    <li><strong>Not all articles are Dravet-focused.</strong> Some papers include Dravet Syndrome as part of a broader epilepsy cohort.</li>
+                    <li>To view articles that specifically study Dravet Syndrome, select <strong>“Yes”</strong> in the <strong>DS-related</strong> filter on the left.</li>
+                    <li>Article classification and annotation are still in progress. Organism and clinical-axis filters/charts are temporarily disabled until curation is complete.</li>
+                </ul>
+                <p class="mb-1"><strong>Recommended workflow:</strong></p>
+                <ol class="mb-0">
+                    <li>Use the filters on the left to narrow the articles of interest.</li>
+                    <li>Click <strong>Apply filters</strong> to update the table.</li>
+                    <li>Select one or more articles from the table.</li>
+                    <li>Click <strong>Show details for selected articles</strong>.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-2 col-md-4 mb-3">
+            <form method="get" id="filter-form">
+                <div class="inner-box mb-2">
+                    <div class="section-header">
+                        <h6>Filters</h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetDateDs()">Reset</button>
+                    </div>
+
+                    <label class="form-label mb-1">Publication date</label>
+                    <select name="date_filter" id="date_filter_select" class="form-select form-select-sm mb-2" onchange="updateCustomDateVisibility()">
+                        <option value="all" {% if date_filter == 'all' %}selected{% endif %}>All time</option>
+                        <option value="week" {% if date_filter == 'week' %}selected{% endif %}>Past week</option>
+                        <option value="month" {% if date_filter == 'month' %}selected{% endif %}>Past month</option>
+                        <option value="year" {% if date_filter == 'year' %}selected{% endif %}>Past year</option>
+                        <option value="custom" {% if date_filter == 'custom' %}selected{% endif %}>Custom range</option>
+                    </select>
+
+                    <div id="custom-date-container" style="display: {% if date_filter == 'custom' %}block{% else %}none{% endif %};">
+                        <div class="mb-1">
+                            <label class="form-label mb-1">From</label>
+                            <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label mb-1">To</label>
+                            <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date }}">
+                        </div>
+                    </div>
+
+                    <label class="form-label mb-1 mt-1">DS-related</label>
+                    <select name="ds" class="form-select form-select-sm">
+                        <option value="all" {% if ds_filter == 'all' %}selected{% endif %}>All</option>
+                        <option value="Yes" {% if ds_filter == 'Yes' %}selected{% endif %}>Yes</option>
+                        <option value="No"  {% if ds_filter == 'No' %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+
+                <div class="inner-box mb-2 akb-disabled-feature">
+                    <div class="section-header">
+                        <h6>Organism <span class="akb-coming-soon-badge">Coming soon</span></h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetOrganism()" disabled>Reset</button>
+                    </div>
+                    <select name="organism" class="form-select form-select-sm" multiple size="5" disabled aria-disabled="true">
+                        {% for org in organism_choices %}
+                            <option value="{{ org }}" {% if org in organism_filter %}selected{% endif %}>{{ org }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="akb-disabled-message">Organism annotations are being curated and will be enabled in a future update.</div>
+                </div>
+
+                <div class="inner-box mb-2">
+                    <div class="section-header">
+                        <h6>Article type</h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetTypes()">Reset</button>
+                    </div>
+                    <select name="type" class="form-select form-select-sm" multiple size="7">
+                        {% for t in type_choices %}
+                            <option value="{{ t }}" {% if t in type_filter %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="inner-box mb-2 akb-disabled-feature">
+                    <div class="section-header">
+                        <h6>Axis <span class="akb-coming-soon-badge">Coming soon</span></h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetAxes()" disabled>Reset</button>
+                    </div>
+                    <select name="axis" class="form-select form-select-sm" multiple size="9" disabled aria-disabled="true">
+                        {% for a in axis_choices %}
+                            <option value="{{ a }}" {% if a in axis_filter %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="akb-disabled-message">Clinical-axis annotations are being finalized and will be enabled in a future update.</div>
+                </div>
+
+                <div class="inner-box mb-2">
+                    <div class="section-header">
+                        <h6>Search title/abstract</h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetSearch()">Reset</button>
+                    </div>
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="e.g. SCN1A, fenfluramine" value="{{ search_query }}">
+                </div>
+
+                <div class="inner-box">
+                    <div class="section-header">
+                        <h6>Apply filters</h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetAllFilters()">Reset all</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm apply-btn">Apply filters</button>
+                    <div class="alert alert-info articles-count-badge mb-0 mt-2 py-1 px-2">
+                        <div><strong>{{ total_count }}</strong> articles match current filters.</div>
+                        <div class="small mt-1">
+                            <strong>Last KG update:</strong>
+                            {% if kg_last_updated %}
+                                {{ kg_last_updated }}
+                            {% else %}
+                                Not available yet
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-lg-6 col-md-8 mb-3">
+            <div class="inner-box mb-2">
+                <div class="section-header">
+                    <h6>Select articles</h6>
+                    <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="resetArticleSelection()">Reset</button>
+                </div>
+
+                <form method="post" action="?{{ request.GET.urlencode }}" id="article-select-form">
+                    {% csrf_token %}
+                    <div class="table-scroll">
+                        <table class="table table-sm table-hover align-middle mb-1 small">
+                            <thead class="table-light">
+                            <tr>
+                                <th scope="col">Select</th>
+                                <th scope="col" class="sortable" data-type="text">Title</th>
+                                <th scope="col" class="sortable" data-type="number">Year</th>
+                                <th scope="col" class="sortable" data-type="text">Type</th>
+                                <th scope="col" class="sortable" data-type="text">Organism</th>
+                                <th scope="col" class="sortable" data-type="text">DS</th>
+                                <th scope="col" class="sortable" data-type="text">Axis</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for article in articles %}
+                                <tr>
+                                    <td><input type="checkbox" name="selected_articles" value="{{ article.pmcid }}"></td>
+                                    <td>{{ article.title }}</td>
+                                    <td>{{ article.year }}</td>
+                                    <td>{{ article.type }}</td>
+                                    <td>{{ article.organism }}</td>
+                                    <td>{{ article.ds }}</td>
+                                    <td>{{ article.axis }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="7">No articles found for these filters.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm mt-1">Show details for selected articles</button>
+                </form>
+            </div>
+
+            <div class="inner-box">
+                <div class="section-header">
+                    <h6>Selected articles</h6>
+                    <button type="button" class="btn btn-outline-secondary btn-sm reset-btn" onclick="clearSelectedArticlesPanel()">Reset</button>
+                </div>
+
+                {% if selected_articles %}
+                    <div class="row">
+                        {% for a in selected_articles %}
+                            <div class="col-12 mb-2">
+                                <div class="card selected-article-card">
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title mb-1" style="font-size:0.95rem;">{{ a.title }}</h6>
+                                        <p class="card-subtitle text-muted mb-1" style="font-size:0.8rem;">
+                                            {{ a.authors }} – <em>{{ a.journal }}</em> ({{ a.year }})
+                                        </p>
+                                        <p class="mb-1" style="font-size:0.82rem;">
+                                            <strong>Type:</strong> {{ a.type }} | <strong>Date:</strong> {{ a.date }} |
+                                            <strong>Organism:</strong> {{ a.organism }} | <strong>Axis:</strong> {{ a.axis }}
+                                        </p>
+                                        <p class="mb-1" style="font-size:0.82rem;"><strong>Abstract:</strong> {{ a.abstract }}</p>
+                                        <p class="mb-0" style="font-size:0.82rem;">
+                                            <a href="{{ a.url }}" target="_blank" class="card-link">View article online</a>
+                                            {% if a.pdf_path %}
+                                                <a href="{{ MEDIA_URL }}{{ a.pdf_path }}" target="_blank" class="btn btn-sm btn-outline-primary ms-2">Open PDF</a>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0" style="font-size:0.85rem;">No articles selected yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-3">
+            <div class="inner-box chart-container">
+                <div class="section-header">
+                    <h6>Article Types</h6>
+                </div>
+                <canvas id="typeChart"></canvas>
+            </div>
+            <div class="inner-box chart-container akb-chart-coming-soon">
+                <div class="section-header">
+                    <h6>Axes <span class="akb-coming-soon-badge">Coming soon</span></h6>
+                </div>
+                <canvas id="axisChart" aria-hidden="true"></canvas>
+                <div class="akb-chart-overlay">
+                    <div class="akb-chart-overlay-title">Axis annotation summary</div>
+                    <div class="akb-chart-overlay-text">Chart will be updated after clinical-axis curation is complete.</div>
+                </div>
+            </div>
+            <div class="inner-box chart-container akb-chart-coming-soon">
+                <div class="section-header">
+                    <h6>Organism <span class="akb-coming-soon-badge">Coming soon</span></h6>
+                </div>
+                <canvas id="organismChart" aria-hidden="true"></canvas>
+                <div class="akb-chart-overlay">
+                    <div class="akb-chart-overlay-title">Organism annotation summary</div>
+                    <div class="akb-chart-overlay-text">Chart will be updated after organism-level curation is complete.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if KROMA_FEEDBACK_URL %}
+<a class="feedback-fab" href="{{ KROMA_FEEDBACK_URL }}" target="_blank" rel="noopener">💬 Feedback</a>
+{% endif %}
+
+<style>
+    @keyframes kromaPulse {
+        0% { opacity: 0.35; transform: scale(0.95); }
+        50% { opacity: 1; transform: scale(1.1); }
+        100% { opacity: 0.35; transform: scale(0.95); }
+    }
+
+    .thinking-dots::after {
+        content: "";
+        display: inline-block;
+        width: 1.3em;
+        text-align: left;
+        animation: kromaDots 1.2s steps(4, end) infinite;
+    }
+
+    @keyframes kromaDots {
+        0% { content: ""; }
+        25% { content: "."; }
+        50% { content: ".."; }
+        75% { content: "..."; }
+        100% { content: ""; }
+    }
+
+    #chatbot-response .main-answer h1,
+    #chatbot-response .main-answer h2,
+    #chatbot-response .main-answer h3,
+    #chatbot-response .main-answer h4,
+    #chatbot-response .main-answer h5,
+    #chatbot-response .main-answer h6 {
+        font-size: 1rem;
+        margin-top: 0.4rem;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+    }
+
+    #chatbot-response .main-answer p {
+        margin-bottom: 0.6rem;
+    }
+
+    #chatbot-response .main-answer ul,
+    #chatbot-response .main-answer ol {
+        padding-left: 1.2rem;
+        margin-bottom: 0.6rem;
+    }
+
+    #chatbot-response .main-answer li {
+        margin-bottom: 0.25rem;
+    }
+
+    #chatbot-response .main-answer strong {
+        font-weight: 700;
+    }
+
+    #chatbot-response .main-answer em {
+        font-style: italic;
+    }
+
+    #chatbot-response .main-answer code {
+        background: #f1f3f5;
+        padding: 0.1rem 0.25rem;
+        border-radius: 4px;
+        font-size: 0.88em;
+    }
+
+    #chatbot-response .main-answer pre {
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 0.6rem;
+        overflow-x: auto;
+        margin-bottom: 0.75rem;
+    }
+
+    .chat-role-option:has(input:checked) {
+        border-color: #0d6efd;
+        background: #eef5ff;
+        box-shadow: 0 0 0 1px rgba(13,110,253,0.15);
+    }
+
+    .akb-development-note {
+        border-color: #ffe69c;
+        background-color: #fff8e1;
+        color: #664d03;
+    }
+
+    .akb-disabled-feature {
+        position: relative;
+        background: #f8f9fa;
+        border-color: #dee2e6;
+        opacity: 0.78;
+    }
+
+    .akb-disabled-feature select,
+    .akb-disabled-feature button {
+        cursor: not-allowed;
+    }
+
+    .akb-coming-soon-badge {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #e9ecef;
+        color: #6c757d;
+        border: 1px solid #ced4da;
+        font-size: 0.65rem;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+
+    .akb-disabled-message {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: #6c757d;
+        line-height: 1.25;
+    }
+
+    .akb-chart-coming-soon {
+        position: relative;
+        min-height: 220px;
+        background: #f8f9fa;
+        border-color: #dee2e6;
+        overflow: hidden;
+    }
+
+    .akb-chart-coming-soon canvas {
+        opacity: 0.12;
+        filter: grayscale(1);
+        pointer-events: none;
+    }
+
+    .akb-chart-overlay {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: 52%;
+        transform: translateY(-50%);
+        padding: 14px 12px;
+        text-align: center;
+        border: 1px dashed #adb5bd;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.92);
+        color: #6c757d;
+        pointer-events: none;
+    }
+
+    .akb-chart-overlay-title {
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 4px;
+    }
+
+    .akb-chart-overlay-text {
+        font-size: 0.8rem;
+        line-height: 1.25;
+    }
+
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
+<script>
+    // --------- FILTER RESET HELPERS ----------
+    function resetDateDs() {
+        const form = document.getElementById('filter-form');
+        if (!form) return;
+        form.date_filter.value = 'all';
+        const start = form.querySelector('input[name="start_date"]');
+        const end = form.querySelector('input[name="end_date"]');
+        if (start) start.value = '';
+        if (end) end.value = '';
+        form.ds.value = 'all';
+        updateCustomDateVisibility();
+    }
+
+    function resetOrganism() {
+        const s = document.querySelector('select[name="organism"]');
+        if (s) Array.from(s.options).forEach(o => o.selected = false);
+    }
+
+    function resetTypes() {
+        const s = document.querySelector('select[name="type"]');
+        if (s) Array.from(s.options).forEach(o => o.selected = false);
+    }
+
+    function resetAxes() {
+        const s = document.querySelector('select[name="axis"]');
+        if (s) Array.from(s.options).forEach(o => o.selected = false);
+    }
+
+    function resetSearch() {
+        const i = document.querySelector('input[name="q"]');
+        if (i) i.value = '';
+    }
+
+    function resetAllFilters() {
+        window.location.href = "{% url 'DSapp:index' %}";
+    }
+
+    function resetArticleSelection() {
+        document.querySelectorAll('#article-select-form input[type="checkbox"]').forEach(cb => cb.checked = false);
+    }
+
+    function clearSelectedArticlesPanel() {
+        window.location.href = "?{{ request.GET.urlencode }}";
+    }
+
+    function updateCustomDateVisibility() {
+        const select = document.getElementById('date_filter_select');
+        const container = document.getElementById('custom-date-container');
+        if (!select || !container) return;
+        container.style.display = select.value === 'custom' ? 'block' : 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', updateCustomDateVisibility);
+
+    // --------- CHART DATA ----------
+    const typeLabels = {{ type_labels_json|safe }};
+    const typeValues = {{ type_values_json|safe }};
+    const typePercentages = {{ type_percentages_json|safe }};
+    const axisLabels = {{ axis_labels_json|safe }};
+    const axisValues = {{ axis_values_json|safe }};
+    const axisPercentages = {{ axis_percentages_json|safe }};
+    const orgLabels = {{ org_labels_json|safe }};
+    const orgValues = {{ org_values_json|safe }};
+    const orgPercentages = {{ org_percentages_json|safe }};
+    const pieColors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
+
+    new Chart(document.getElementById('typeChart').getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: typeLabels,
+            datasets: [{ data: typeValues, backgroundColor: pieColors.slice(0, typeLabels.length) }]
+        },
+        options: {
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => `${c.label || ''}: ${c.raw} (${typePercentages[c.dataIndex] || 0}%)`
+                    }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('axisChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: axisLabels,
+            datasets: [{ data: axisValues, backgroundColor: '#1f77b4' }]
+        },
+        options: {
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => `${c.label || ''}: ${c.raw} (${axisPercentages[c.dataIndex] || 0}%)`
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true },
+                x: { ticks: { maxRotation: 60, minRotation: 30 } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('organismChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: orgLabels,
+            datasets: [{ data: orgValues, backgroundColor: '#ff7f0e' }]
+        },
+        options: {
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => `${c.label || ''}: ${c.raw} (${orgPercentages[c.dataIndex] || 0}%)`
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true },
+                x: { ticks: { maxRotation: 45, minRotation: 0 } }
+            }
+        }
+    });
+
+    // --------- TABLE SORTING ----------
+    document.addEventListener("DOMContentLoaded", function () {
+        const table = document.querySelector("#article-select-form table");
+        if (!table) return;
+
+        table.querySelectorAll("th.sortable").forEach(header => {
+            header.style.cursor = "pointer";
+            header.addEventListener("click", () => {
+                const colIndex = [...header.parentElement.children].indexOf(header);
+                const type = header.dataset.type;
+                const newOrder = header.dataset.order === "asc" ? "desc" : "asc";
+
+                table.querySelectorAll("th.sortable").forEach(h => {
+                    h.dataset.order = "none";
+                    h.textContent = h.textContent.replace(/ ▲| ▼/g, "");
+                });
+
+                header.dataset.order = newOrder;
+                header.textContent += newOrder === "asc" ? " ▲" : " ▼";
+
+                const tbody = table.querySelector("tbody");
+                Array.from(tbody.querySelectorAll("tr")).sort((a, b) => {
+                    let vA = a.children[colIndex].innerText.trim();
+                    let vB = b.children[colIndex].innerText.trim();
+
+                    if (type === "number") {
+                        vA = parseInt(vA) || 0;
+                        vB = parseInt(vB) || 0;
+                    } else {
+                        vA = vA.toLowerCase();
+                        vB = vB.toLowerCase();
+                    }
+
+                    return vA < vB ? (newOrder === "asc" ? -1 : 1) : (vA > vB ? (newOrder === "asc" ? 1 : -1) : 0);
+                }).forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+
+    // --------- HTML / MARKDOWN RENDERERS ----------
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.innerText = text;
+        return div.innerHTML;
+    }
+
+    function renderMarkdown(markdownText) {
+        const raw = markdownText || "";
+        const parsed = marked.parse(raw, { breaks: true, gfm: true });
+        return DOMPurify.sanitize(parsed);
+    }
+
+    function renderReferences(refs) {
+        if (!refs || refs.length === 0) return "";
+
+        let html = `
+            <div class="kroma-references mt-2 p-2" style="background:#fff; border-radius:6px; border:1px solid #ddd;">
+                <button class="btn btn-link btn-sm p-0 ref-toggle" style="text-decoration:none; font-weight:bold; color:#555;"
+                        onclick="this.nextElementSibling.classList.toggle('d-none')">
+                    📚 References (${refs.length}) ▼
+                </button>
+                <ul class="d-none mt-2 mb-0 ms-3">
+        `;
+
+refs.forEach(r => {
+    const authorText = r.first_author
+        ? `${r.first_author}${r.has_multiple_authors ? " et al" : ""}. `
+        : "";
+
+    const titleText = r.title || "Untitled";
+
+    const pmcidNumber = r.pmcid
+        ? String(r.pmcid).replace(/^PMC/i, "")
+        : "";
+
+    const pmcUrl = r.pmc_url
+        || (pmcidNumber ? `https://pmc.ncbi.nlm.nih.gov/articles/PMC${pmcidNumber}/` : "#");
+
+    html += `
+        <li style="font-size:0.82rem; margin-bottom:6px;">
+            ${escapeHtml(authorText)}${escapeHtml(titleText)}
+            ${pmcidNumber
+                ? `(PMCID: <a href="${pmcUrl}" target="_blank" rel="noopener">${escapeHtml(pmcidNumber)}</a>)`
+                : ""}
+        </li>
+    `;
+});
+
+        html += `</ul></div>`;
+        return html;
+    }
+
+    function renderKgSummary(summaryText) {
+        if (!summaryText) return "";
+
+        const cleanSummary = renderMarkdown(summaryText);
+        return `
+            <div class="kroma-kg-summary mt-2 p-2" style="background-color:#f0f8ff; border-radius:6px; border:1px solid #bce8f1;">
+                <button class="btn btn-link btn-sm p-0 mb-1" style="text-decoration:none; color:#31708f; font-weight:bold;"
+                        onclick="this.nextElementSibling.classList.toggle('d-none')">
+                    🧠 View Knowledge Graph Reasoning ▼
+                </button>
+                <div class="d-none small text-muted mt-1 p-1">
+                    ${cleanSummary}
+                </div>
+            </div>
+        `;
+    }
+
+    // --------- CHATBOX (KroMA) LOGIC ----------
+    document.addEventListener("DOMContentLoaded", function() {
+        const sendBtn = document.getElementById("chatbot-send");
+        const copyBtn = document.getElementById("chatbot-copy");
+        const clearBtn = document.getElementById("chatbot-clear");
+        const input = document.getElementById("chatbot-input");
+        const responseBox = document.getElementById("chatbot-response");
+        const statusBox = document.getElementById("chatbot-status");
+
+        if (!sendBtn || !input || !responseBox || !statusBox) return;
+        const KROMA_CHAT_STORAGE_KEY = "kroma_chat_history_v1";
+        const KROMA_CHAT_INPUT_KEY = "kroma_chat_input_v1";
+        const KROMA_CHAT_ROLE_KEY = "kroma_chat_role_v1";
+
+        function saveChatState() {
+            if (!responseBox) return;
+
+            sessionStorage.setItem(KROMA_CHAT_STORAGE_KEY, responseBox.innerHTML);
+            sessionStorage.setItem(KROMA_CHAT_INPUT_KEY, input ? input.value : "");
+
+            const selectedRole = document.querySelector('input[name="chatbot-role"]:checked');
+            if (selectedRole) {
+                sessionStorage.setItem(KROMA_CHAT_ROLE_KEY, selectedRole.value);
+            }
+        }
+
+        function restoreChatState() {
+            const savedChat = sessionStorage.getItem(KROMA_CHAT_STORAGE_KEY);
+            const savedInput = sessionStorage.getItem(KROMA_CHAT_INPUT_KEY);
+            const savedRole = sessionStorage.getItem(KROMA_CHAT_ROLE_KEY);
+
+            if (savedChat) {
+                responseBox.innerHTML = savedChat;
+                responseBox.scrollTop = responseBox.scrollHeight;
+            }
+
+            if (savedInput && input) {
+                input.value = savedInput;
+            }
+
+            if (savedRole) {
+                const roleRadio = document.querySelector(`input[name="chatbot-role"][value="${savedRole}"]`);
+                if (roleRadio) {
+                    roleRadio.checked = true;
+                }
+            }
+        }
+
+        function getDefaultChatHtml() {
+            return `
+                <div class="chat-msg bot" style="display:flex; justify-content:flex-start;">
+                    <div class="bubble p-2"
+                         style="background:#e9ecef; border-radius:8px; max-width:85%;">
+                        <div class="main-answer">
+                            <p class="mb-0">Ask me anything about Dravet Syndrome. I will use the Dravet Syndrome knowledge graph to help answer your question.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function clearChatState() {
+            sessionStorage.removeItem(KROMA_CHAT_STORAGE_KEY);
+            sessionStorage.removeItem(KROMA_CHAT_INPUT_KEY);
+            sessionStorage.removeItem(KROMA_CHAT_ROLE_KEY);
+
+            if (responseBox) {
+                responseBox.innerHTML = getDefaultChatHtml();
+                responseBox.scrollTop = 0;
+            }
+
+            if (input) {
+                input.value = "";
+            }
+        }
+
+        restoreChatState();
+
+        window.addEventListener("beforeunload", saveChatState);
+
+        document.querySelectorAll("#filter-form, #article-select-form").forEach(form => {
+            form.addEventListener("submit", saveChatState);
+        });
+
+        document.querySelectorAll('input[name="chatbot-role"]').forEach(radio => {
+            radio.addEventListener("change", saveChatState);
+        });
+
+        if (input) {
+            input.addEventListener("input", saveChatState);
+        }
+        function getSelectedRole() {
+            const selected = document.querySelector('input[name="chatbot-role"]:checked');
+            return selected ? selected.value : "clinician";
+        }
+
+        function setThinkingState(isThinking) {
+            statusBox.style.display = isThinking ? "flex" : "none";
+            sendBtn.disabled = isThinking;
+            input.disabled = isThinking;
+            document.querySelectorAll('input[name="chatbot-role"]').forEach(r => r.disabled = isThinking);
+        }
+
+        function appendMessage(sender, htmlContent) {
+            const wrapper = document.createElement("div");
+            wrapper.className = `chat-msg ${sender} mb-2`;
+            wrapper.style.display = "flex";
+            wrapper.style.justifyContent = sender === "user" ? "flex-end" : "flex-start";
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble p-2";
+            bubble.style.borderRadius = "8px";
+            bubble.style.maxWidth = "85%";
+
+            if (sender === "user") {
+                bubble.style.background = "#0d6efd";
+                bubble.style.color = "white";
+            } else {
+                bubble.style.background = "#e9ecef";
+                bubble.style.color = "black";
+            }
+
+            bubble.innerHTML = htmlContent;
+            wrapper.appendChild(bubble);
+            responseBox.appendChild(wrapper);
+            responseBox.scrollTop = responseBox.scrollHeight;
+            saveChatState();
+        }
+
+        function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            const role = getSelectedRole();
+
+            appendMessage("user", escapeHtml(text).replace(/\n/g, "<br>"));
+            input.value = "";
+            setThinkingState(true);
+
+            const csrfToken = document.querySelector('#chat-csrf-form input[name=csrfmiddlewaretoken]').value;
+
+            const formData = new FormData();
+            formData.append("message", text);
+            formData.append("role", role);
+
+            fetch("{% url 'DSapp:kg_chat_api' %}", {
+                method: "POST",
+                headers: { "X-CSRFToken": csrfToken },
+                body: formData
+            })
+            .then(async res => {
+                const text = await res.text();
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`Server returned non-JSON response. HTTP ${res.status}: ${text.slice(0, 500)}`);
+                }
+
+                if (!res.ok) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
+
+                return data;
+            })
+            .then(data => {
+                setThinkingState(false);
+
+                if (data.error) {
+                    appendMessage("bot", `<span style="color:red;">Error: ${escapeHtml(data.error)}</span>`);
+                    return;
+                }
+
+                let botHtml = `<div class="main-answer">${renderMarkdown(data.response || "")}</div>`;
+
+                if (data.kg_summary && role !== "patient") {
+                    botHtml += renderKgSummary(data.kg_summary);
+                }
+
+                if (data.references && data.references.length > 0) {
+                    botHtml += renderReferences(data.references);
+                }
+
+                appendMessage("bot", botHtml);
+                saveChatState();
+            })
+            .catch(err => {
+                setThinkingState(false);
+                appendMessage(
+                    "bot",
+                    `<span style="color:red;">Error: ${escapeHtml(err.message || "Request failed.")}</span>`
+                );
+                console.error(err);
+            });
+        }
+
+        sendBtn.addEventListener("click", sendMessage);
+
+        input.addEventListener("keypress", function(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        copyBtn.addEventListener("click", () => {
+            const textToCopy = responseBox.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => { copyBtn.innerText = "Copy"; }, 2000);
+            });
+        });
+        if (clearBtn) {
+            clearBtn.addEventListener("click", clearChatState);
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+The following query is about a scientific paper on Dravet Syndrome.
+
+First, I will present you with an example on how to answer the question. After the delimiter, I will ask the main question and you should answer that accordingly.
+
+Example:
+Question: The following text describes a study on the effect of antiepileptic drugs (or antiseizure medications) in suppressing seizures. Answer the following question:
+1. Does the text describe Spontaneous seizure or Induced seizure (1. hyperthermia-induced seizure; 2. auditary-induced seizure; 3. light-induced seizure) in the studied organisms? 
+
+We modeled febrile seizures by thermal induction in DS mice, in which core body temperature was slowly raised to 38 °C and held there for 30 min (15).
+
+Answer:
+trigger: Induced
+
+---
+Main Question:
+Question: The following text describes a study on the effect of antiepileptic drugs (or antiseizure medications) on suppressing seizures. Answer the following question:
+1. Does the text describe Spontaneous seizure or Induced seizure (1. hyperthermia-induced seizure; 2. auditary-induced seizure; 3. light-induced seizure) in the studied organisms?
+
+Answer:
+trigger: 

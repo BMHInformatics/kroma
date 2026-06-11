@@ -1,0 +1,21 @@
+The following query is about a scientific paper on Dravet Syndrome.
+
+First, I will present you with an example on how to answer the question. After the delimiter, I will ask the main question and you should answer the main question ONLY using the text provided.
+
+Example:
+Question: The following text describe a study on the effect of antiepileptic drugs (or anti-seizure medications) in suppressing seizures. Answer the following question:
+1. Identify the organism that have been studied in the following text. Answer with "Human" or "Zebrafish" or "Mouse".
+
+To validate the zebrafish scn1Lab−/− mutant model and the experimental conditions used in this study, we first tested a series of antiepileptic drugs (AEDs) proposed by different treatment algorithms for DS.
+In our Dravet syndrome cohort, we found >50% of patients had an effective response with tolerable side effects during treatment with clobazam (63/90), valproic acid (66/113), or stiripentol (26/ 38), while less than 45% had effective response with tolerable side effects with clonazepam (14/33) or topiramate (36/ 98) (Fig. 1).
+
+Answer:
+organism: Zebrafish, Human
+---
+
+Main Question:
+The following text describes a study on the effect of antiepileptic drugs (or antiseizure medications) in suppressing seizures. Answer the following question:
+1. Identify the organism that have been studied in the following text. Answer with "Human" or "Zebrafish" or "Mouse". If there are more than 1 organism, separate them by comma.
+
+Answer:
+organism: 

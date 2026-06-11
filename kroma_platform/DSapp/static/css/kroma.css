@@ -1,0 +1,255 @@
+/* ========= Global / page layout ========= */
+body {
+  padding: 0;
+  margin: 0;
+  background-color: #dcdcdc;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.main-container {
+  padding: 0 1.5rem 2rem 1.5rem;
+}
+
+/* ========= Header ========= */
+.ds-header {
+  background-color: #0056b3;
+}
+
+/* Logo styling */
+.kroma-logo {
+  height: 90px;
+  width: auto;
+}
+
+/* Center title never shifts due to flex */
+.header-title-wrapper {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.kroma-title {
+  color: #ffffff;
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.kroma-subtitle {
+  color: #dbeafe;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.user-badge{
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ========= Boxes / layout blocks ========= */
+.rounded-box {
+  border-radius: 0.85rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  background-color: #dbe8ed;
+  padding: 0.75rem 0.9rem 1rem 0.9rem;
+}
+
+/* Outer big container for Article Knowledge Base (AKB) */
+.akb-container {
+  background-color: #dbe8ed;
+  padding: 1rem 1rem 1.25rem 1rem;
+}
+
+/* Inner boxes inside the AKB container */
+.inner-box {
+  border-radius: 0.8rem;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 4px 10px rgba(15, 23, 42, 0.08);
+  padding: 0.65rem 0.8rem 0.9rem 0.8rem;
+  margin-bottom: 0.7rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  color: #064488;
+}
+
+.section-header .reset-btn {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.table-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.selected-article-card {
+  margin-bottom: 0.75rem;
+}
+
+.chart-container {
+  margin-bottom: 1rem;
+}
+
+.apply-btn {
+  width: 100%;
+}
+
+.articles-count-badge {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* ========= Chat bubbles ========= */
+.chat-msg {
+  margin-bottom: 6px;
+  display: flex;
+}
+.chat-msg.user {
+  justify-content: flex-end;
+}
+.chat-msg.bot {
+  justify-content: flex-start;
+}
+.chat-msg .bubble {
+  max-width: 80%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  word-wrap: break-word;
+}
+.chat-msg.user .bubble {
+  background-color: #0056b3;
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+}
+.chat-msg.bot .bubble {
+  background-color: #e5e7eb;
+  color: #111827;
+  border-bottom-left-radius: 2px;
+}
+
+.box-answer {
+  display: inline-block;
+  border: 2px solid #111;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  margin: 0 2px;
+  background: #fdfdfd;
+}
+/* ===== Thinking indicator (spinner) ===== */
+#chatbot-status{
+  min-height: 1.4em;
+}
+
+#chatbot-status .thinking-label,
+#chatbot-status .thinking-dots{
+  display: none;
+}
+
+#chatbot-status.thinking .thinking-label,
+#chatbot-status.thinking .thinking-dots{
+  display: inline-block;
+}
+
+#chatbot-status.thinking .thinking-label::before{
+  content: "Thinking";
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0d6efd;
+}
+
+#chatbot-status.thinking .thinking-dots{
+  box-sizing: border-box;
+  background: none !important;
+  background-image: none !important;
+  content: "" !important;
+
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  vertical-align: -3px;
+
+  border: 3px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+
+  animation: kromaSpin 0.8s linear infinite;
+  color: #0d6efd;
+}
+
+@keyframes kromaSpin{
+  to { transform: rotate(360deg); }
+}
+
+/* ========= Feedback floating button ========= */
+.feedback-fab{
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1050;
+  background: #ffffff;
+  color: #0b5ed7;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 1.2rem;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    sans-serif;
+}
+
+.feedback-fab.hidden{
+  opacity: 0.35;
+  transform: translateY(10px);
+}
+
+.feedback-fab:hover{
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+.kroma-references {
+    margin-top: 6px;
+    border-top: 1px dashed #ddd;
+    padding-top: 4px;
+}
+
+.kroma-references a {
+    text-decoration: none;
+}
+
+.kroma-references a:hover {
+    text-decoration: underline;
+}

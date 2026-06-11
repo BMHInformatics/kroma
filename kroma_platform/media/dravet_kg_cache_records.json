@@ -1,0 +1,11 @@
+{
+  "status": "empty",
+  "deleted_at": "2026-05-22T01:55:18.322118+00:00",
+  "deleted_cache_names": [],
+  "delete_errors": [
+    {
+      "cache_name": "cachedContents/gru8m6kchdq6fb148le4175czbwtteg9gplu6rpx",
+      "error": "ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'CachedContent not found (or permission denied)', 'status': 'PERMISSION_DENIED'}}"
+    }
+  ]
+}

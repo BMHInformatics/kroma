@@ -1,0 +1,3 @@
+The following query is about a scientific paper.
+Answer the following question:
+Determine whether the main focus of the following text is Dravet Syndrome. Answer with Yes or No. Do not explain.

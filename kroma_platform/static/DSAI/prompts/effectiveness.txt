@@ -1,0 +1,26 @@
+The following query is about a scientific paper on Dravet Syndrome.
+
+First, I will present you with an example on how to answer the question. After the delimiter, I will ask the main question and you should answer the main question ONLY using the text provided.
+
+Example:
+Question: The following text describes a study on the effect of antiepileptic drugs (or anti-seizure medications) in suppressing seizures. Answer the following question:
+1. Did the drug decrease, reduce, block, or stop the seizure in the organism that has been studied? Answer with "Yes" or "No".
+
+In the valproate-topiramate treatment, all 9 mutant larvae responded positively in valproate treatment (i.e., decrease of seizure score), and 7 of 9 larvae positively responded during topiramate treatment when compared to each previous baseline (Fig. 5h). A similar experiment with topiramate followed by valproate was also performed on separate batch of scn1Lab mutant zebrafish (see Fig. S5).
+
+Answer:
+drug: Valproate,
+organism: Zebrafish,
+seizure trigger: Spontaneous,
+effectiveness: Yes,
+
+drug: Topiramate,
+organism: Zebrafish,
+seizure trigger: Spontaneous,
+effect: Yes,
+---
+
+Main Question:
+Question: The following text describes a study of the effect on antiepileptic drugs (or anti-seizure medications) in suppressing seizures. Answer the following question:
+1. Did the drug decrease, reduce, block, or stop the seizure in the organism that has been studied? Answer with "Yes" or "No".
+
