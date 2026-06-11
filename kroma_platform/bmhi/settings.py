@@ -55,10 +55,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_celery_beat',
-    'labwebsite',
-    'NIC',
-    'MATILDA',
-    'epilepsy4d',
     'DSapp',
 ]
 
@@ -100,86 +96,34 @@ if environment == 'prod':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'labwebsite',
-#            'USER': 'labuser',
-#            'PASSWORD': 'Sahoo_lab',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        },
-        'dsai': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': env('DSAI_DB_NAME'),
             'USER': env('DSAI_DB_USER'),
             'PASSWORD': env('DSAI_DB_PASSWORD'),
             'HOST': env('DSAI_DB_HOST'),
             'PORT': env('DSAI_DB_PORT'),
         },
-        'epilepsy4d': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'epilepsy4d',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
-
     }
 elif environment == "test":
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'labwebsite',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        },
-        'dsai': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': env('DSAI_DB_NAME'),
             'USER': env('DSAI_DB_USER'),
             'PASSWORD': env('DSAI_DB_PASSWORD'),
             'HOST': env('DSAI_DB_HOST'),
             'PORT': env('DSAI_DB_PORT'),
-        },
-        'epilepsy4d': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'epilepsy4d',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
         },
     }
 else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'labwebsite',
-            'USER': 'postgres',
-#            'PASSWORD': 'Dipak@2021',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        },
-        'dsai': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': env('DSAI_DB_NAME'),
             'USER': env('DSAI_DB_USER'),
             'PASSWORD': env('DSAI_DB_PASSWORD'),
             'HOST': env('DSAI_DB_HOST'),
             'PORT': env('DSAI_DB_PORT'),
         },
-        'epilepsy4d': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'epilepsy4d',
-            'USER': 'postgres',
-            'PASSWORD': 'admin',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
     }
 
 DATABASE_ROUTERS = ['bmhi.dbrouters.DSAppRouter']
@@ -216,11 +160,12 @@ USE_L10N = True
 
 USE_TZ = True
 
+FORCE_SCRIPT_NAME = "/kroma"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = '/kroma/static/'
 if not DEBUG:
     STATIC_ROOT = BASE_DIR.joinpath('static')
 else:
@@ -228,7 +173,7 @@ else:
         BASE_DIR.joinpath('static'),
     ]
 
-MEDIA_URL = '/media/'
+MEDIA_URL = '/kroma/media/'
 MEDIA_ROOT = BASE_DIR.joinpath('media')
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
