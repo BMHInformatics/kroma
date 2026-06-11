@@ -1,0 +1,3 @@
+The following query is about a scientific paper.
+Answer the following question:
+Determine the title of the article in the following text.

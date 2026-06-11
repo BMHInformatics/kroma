@@ -1,0 +1,17 @@
+{
+  "automated_pmc_sync_enabled": false,
+  "automated_triple_extraction_enabled": false,
+  "automated_kg_cache_reset_enabled": false,
+  "pmc_sync_time": "00:00",
+  "triple_extraction_every_minutes": 30,
+  "timezone": "America/New_York",
+  "kg_cache_enabled": true,
+  "kg_cache_mode": "scheduled",
+  "kg_cache_ttl_minutes": 30,
+  "kg_cache_scheduled_time": "08:00",
+  "kg_cache_reset_time": "08:00",
+  "pmc_sync_retmax": 200,
+  "triple_extraction_limit_per_run": 1,
+  "updated_at": "2026-05-22T02:31:16.099758+00:00",
+  "updated_by": "appadmin"
+}

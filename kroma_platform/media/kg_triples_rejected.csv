@@ -1,0 +1,13 @@
+Subject,Predicate,Object,Section,PMCID,Reason
+Study,employed,StructuredQuestionnaire,Methods,13041439,generic_subject
+Data,wasAnalyzedUsing,DescriptiveStatisticalMethods,Methods,13041439,generic_subject
+Study,used,ChiSquareTest,Methods,13041439,generic_subject
+ParticipatingCenter,had,SingleSubmissionOpportunity,Methods,13041439,generic_predicate
+KetogenicDietTherapy,hasAdverseEffect,Hyperlipidemia,Introduction,13041439,lower_priority_duplicate_replaced
+Study,hasPrimaryEndpoint,ResponderRate,Methods,13052111,generic_subject
+Study,hasSecondaryEndpoint,Seizure-freeRates,Methods,13052111,generic_subject
+Study,hasSecondaryEndpoint,MedicationRetentionRates,Methods,13052111,generic_subject
+Study,hasSecondaryEndpoint,AdverseEventIncidence,Methods,13052111,generic_subject
+Study,hasDesign,Self-controlledBefore-afterDesign,Methods,13052111,generic_subject
+Zonisamide,hasAdverseEventIncidence,14.2%,Discussion,13052111,lower_priority_duplicate
+DravetSyndrome,hasPreferredMedication,Zonisamide,Discussion,13052111,lower_priority_duplicate

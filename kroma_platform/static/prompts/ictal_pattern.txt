@@ -1,0 +1,20 @@
+The following query is about a scientific paper on Dravet Syndrome.
+
+First, I will present you with an example on how to answer the question. After the delimiter, I will ask the main question and you should answer that accordingly.
+
+Example:
+Question: The following text describes a study on the electrophysiology of seizures. Answer the following question:
+1. What type of ictal pattern is described in the studied organisms? Select from the following: "Seizure Pattern", "None".  Do not explain.
+
+The mice exhibited spontaneous seizures, beginning with forelimb clonus (Racine 3), progressing to forelimb clonus with rearing (Racine 4), and culminating in generalized tonic-clonic seizures (GTC, Racine 5). All observed deaths occurred immediately following a Racine 5 GTC seizure, within 4-48 hours of the initial seizure onset. During the period between the initial seizure and death, mice experienced an average of nine seizures.
+
+Answer:
+ictal pattern: Seizure Pattern
+
+---
+Main Question:
+Question: The following text describes a study on the electrophysiology of seizures. Answer the following question:
+1. What type of ictal pattern is described in the studied organisms? Select from the following: "Seizure Pattern", "None".  Do not explain.
+
+Answer:
+ictal pattern: 

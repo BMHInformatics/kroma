@@ -1,0 +1,74 @@
+{% extends "DSapp/base.html" %}
+{% block title %}KG Triple Extraction | KroMA{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width: 980px;">
+  <h3>KG Triple Extraction</h3>
+  <p class="text-muted">
+    Manually extract triples from eligible articles. Eligible articles are Original studies, DS-related, and have XML full text.
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" class="card card-body shadow-sm mb-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Run extraction</button>
+  </form>
+
+  {% if result %}
+    <div class="card card-body shadow-sm">
+      <h5>Extraction result</h5>
+      <p>
+        <strong>Eligible before skip:</strong> {{ result.eligible_total_before_skip|default:"" }}<br>
+        <strong>Eligible processed this run:</strong> {{ result.eligible_count }}<br>
+        <strong>Skipped already processed:</strong> {{ result.skipped_already_processed_count|default:"" }}<br>
+        <strong>Processed:</strong> {{ result.processed_count }}<br>
+        <strong>Errors:</strong> {{ result.error_count }}
+      </p>
+
+      {% if result.items %}
+        <h6>Processed articles</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle">
+            <thead>
+              <tr>
+                <th>PMCID</th>
+                <th>Raw triples</th>
+                <th>Accepted</th>
+                <th>Rejected</th>
+                <th>Unique added</th>
+                <th>References added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in result.items %}
+                <tr>
+                  <td>{{ item.pmcid }}</td>
+                  <td>{{ item.raw_triple_count }}</td>
+                  <td>{{ item.qa_accepted_count }}</td>
+                  <td>{{ item.qa_rejected_count }}</td>
+                  <td>{{ item.unique_added }}</td>
+                  <td>{{ item.references_added }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      {% if result.errors %}
+        <h6>Errors</h6>
+        <ul>
+          {% for err in result.errors %}
+            <li><strong>PMCID {{ err.pmcid }}:</strong> {{ err.error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
