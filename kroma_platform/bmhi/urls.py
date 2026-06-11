@@ -21,20 +21,8 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('labwebsite.urls', namespace='labwebsite')),
-    path('NIC/', include('NIC.urls', namespace='NIC')),
-    path('NIC/MATILDA/', include('MATILDA.urls', namespace='MATILDA')),
-    path('epilepsy4d/', include('epilepsy4d.urls')),
-    path('kroma/', include('DSapp.urls', namespace='kroma')),
+    path('', include('DSapp.urls', namespace='kroma')),
     path('dsai/', include('DSapp.urls', namespace='kroma')),
-    path(
-        "CDSPD/",
-        RedirectView.as_view(
-            url="https://cciweb01.case.edu/CDSPD/",
-            permanent=False
-        ),
-        name="projectx-redirect"
-    ),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

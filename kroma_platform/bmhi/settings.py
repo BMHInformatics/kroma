@@ -37,7 +37,7 @@ SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 if environment == 'prod':
-   DEBUG = False
+   DEBUG = True
 else:
    DEBUG = True
 
@@ -92,40 +92,42 @@ WSGI_APPLICATION = 'bmhi.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-if environment == 'prod':
+if environment == "prod":
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': env('DSAI_DB_NAME'),
-            'USER': env('DSAI_DB_USER'),
-            'PASSWORD': env('DSAI_DB_PASSWORD'),
-            'HOST': env('DSAI_DB_HOST'),
-            'PORT': env('DSAI_DB_PORT'),
+        "default": {
+            "ENGINE": "django.db.backends.postgresql_psycopg2",
+            "NAME": env("DSAI_DB_NAME"),
+            "USER": env("DSAI_DB_USER"),
+            "PASSWORD": env("DSAI_DB_PASSWORD"),
+            "HOST": env("DSAI_DB_HOST"),
+            "PORT": env("DSAI_DB_PORT"),
         },
-    }
-elif environment == "test":
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': env('DSAI_DB_NAME'),
-            'USER': env('DSAI_DB_USER'),
-            'PASSWORD': env('DSAI_DB_PASSWORD'),
-            'HOST': env('DSAI_DB_HOST'),
-            'PORT': env('DSAI_DB_PORT'),
+        "dsai": {
+            "ENGINE": "django.db.backends.postgresql_psycopg2",
+            "NAME": env("DSAI_DB_NAME"),
+            "USER": env("DSAI_DB_USER"),
+            "PASSWORD": env("DSAI_DB_PASSWORD"),
+            "HOST": env("DSAI_DB_HOST"),
+            "PORT": env("DSAI_DB_PORT"),
         },
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': env('DSAI_DB_NAME'),
-            'USER': env('DSAI_DB_USER'),
-            'PASSWORD': env('DSAI_DB_PASSWORD'),
-            'HOST': env('DSAI_DB_HOST'),
-            'PORT': env('DSAI_DB_PORT'),
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        },
+        "dsai": {
+            "ENGINE": "django.db.backends.postgresql_psycopg2",
+            "NAME": env("DSAI_DB_NAME"),
+            "USER": env("DSAI_DB_USER"),
+            "PASSWORD": env("DSAI_DB_PASSWORD"),
+            "HOST": env("DSAI_DB_HOST"),
+            "PORT": env("DSAI_DB_PORT"),
         },
     }
 
+    
 DATABASE_ROUTERS = ['bmhi.dbrouters.DSAppRouter']
 
 # Password validation
@@ -160,12 +162,12 @@ USE_L10N = True
 
 USE_TZ = True
 
-FORCE_SCRIPT_NAME = "/kroma"
+# FORCE_SCRIPT_NAME = "/kroma"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = '/kroma/static/'
+STATIC_URL = '/static/'
 if not DEBUG:
     STATIC_ROOT = BASE_DIR.joinpath('static')
 else:
@@ -173,7 +175,7 @@ else:
         BASE_DIR.joinpath('static'),
     ]
 
-MEDIA_URL = '/kroma/media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR.joinpath('media')
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
@@ -182,9 +184,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 
-LOGIN_URL = '/kroma/'
-LOGIN_REDIRECT_URL = '/kroma/home'
-LOGOUT_REDIRECT_URL = '/kroma/'
+LOGIN_URL = ''
+LOGIN_REDIRECT_URL = '/home'
+LOGOUT_REDIRECT_URL = ''
 
 
 # KroMA access request
